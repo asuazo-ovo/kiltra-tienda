@@ -1,0 +1,15 @@
+{% extends "dev_base.html" %}
+{% from "_alcances.html" import selector %}
+{% block contenido %}
+<h1>Crear una app</h1>
+<p class="bajada" style="margin-bottom:18px">Dale un nombre y marca los alcances: qué datos de la tienda podrá leer o modificar. Para un agente que solo responde preguntas, basta con leer.</p>
+{% if error %}<p class="aviso" role="alert"><strong>Falta un dato.</strong>{{ error }}</p>{% endif %}
+<form method="post">
+  <div class="form" style="margin-bottom:16px"><div class="campo" style="margin:0"><label for="nombre">Nombre de la app</label>
+    <input id="nombre" name="nombre" placeholder="Agente de WhatsApp" autofocus></div></div>
+  <h2>Alcances</h2>
+  {{ selector(alcances_por_recurso, []) }}
+  <p style="margin-top:16px;display:flex;gap:8px"><a class="boton boton-sec" href="/desarrolladores">Descartar</a>
+    <button class="boton" type="submit">Crear app y lanzar versión</button></p>
+</form>
+{% endblock %}

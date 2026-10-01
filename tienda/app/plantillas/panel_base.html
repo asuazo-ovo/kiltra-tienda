@@ -20,13 +20,17 @@
       <div class="tienda-actual">Tu tienda<strong>{{ tienda.nombre }}</strong></div>
       {% for clave, nombre, ruta in [("inicio", "Inicio", "/admin"), ("pedidos", "Pedidos", "/admin/pedidos"),
                                      ("productos", "Productos y stock", "/admin/productos"), ("clientes", "Clientes", "/admin/clientes"),
-                                     ("descuentos", "Descuentos", "/admin/descuentos"), ("envios", "Envíos", "/admin/envios"),
-                                     ("paginas", "Páginas", "/admin/paginas")] %}
+                                     ("descuentos", "Descuentos", "/admin/descuentos")] %}
       <a class="item" href="{{ ruta }}" {% if seccion == clave %}aria-current="page"{% endif %}>{{ nombre }}</a>
       {% endfor %}
-      <div class="separa"></div>
-      <a class="item" href="/admin/api" {% if seccion == 'api' %}aria-current="page"{% endif %}>Configuración → API</a>
+      <div class="grupo">Canales de ventas</div>
+      <a class="item" href="/admin/paginas" {% if seccion == 'paginas' %}aria-current="page"{% endif %}>Tienda online · Páginas</a>
       <a class="item" href="/" target="_blank" rel="noopener">Ver mi tienda</a>
+      <div class="grupo">Apps</div>
+      {% for a in apps_nav %}<a class="item item-app" href="/admin/configuracion/apps">{{ a.nombre }}</a>{% endfor %}
+      <a class="item item-app" href="/desarrolladores">Desarrollar apps</a>
+      <div class="separa"></div>
+      <a class="item" href="/admin/configuracion" {% if seccion == 'configuracion' %}aria-current="page"{% endif %}>Configuración</a>
       <div class="abajo">Rocío Valdés · <a href="/admin/salir">Salir</a></div>
     </nav>
     <main class="trabajo" id="contenido">

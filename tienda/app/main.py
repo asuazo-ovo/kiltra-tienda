@@ -22,7 +22,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import api, datos, reglas
+from . import accesos, api, datos, reglas
 from .datos import caso
 from .plataforma import DOMINIO, PLATAFORMA, PLATAFORMA_LEMA, TIENDA_CODIGO
 
@@ -38,7 +38,8 @@ USUARIO_ADMIN = "rocio@kiltra.example"
 WHATSAPP = os.environ.get("KILTRA_WHATSAPP", "")          # número del sandbox de Kapso, si se quiere enlazar
 
 datos.crear_base()
-api.credenciales()
+accesos.sembrar()
+accesos.credenciales_cuenta()
 
 # ─────────────────────────── MCP de la plataforma ───────────────────────────
 try:
@@ -66,9 +67,11 @@ async def ciclo(app):
 app = FastAPI(title=f"{PLATAFORMA} — API de administrador (tienda Kiltra)", docs_url="/api/docs", redoc_url=None,
               openapi_url="/api/openapi.json", lifespan=ciclo,
               description=f"API de administrador de {PLATAFORMA}, una plataforma de ecommerce **ficticia** para el curso de "
-                          "agentes de WhatsApp de OVO. Se entra con las credenciales del panel (Configuración → API): "
-                          "encabezados `X-Login-Key` y `X-Auth-Token`. Entrega datos completos y permite modificar la tienda.")
+                          "agentes de WhatsApp de OVO. Se entra por dos vías, como en el mercado: una **app de desarrollador** (como Shopify: `POST /api/oauth/access_token` y luego "
+                          "`X-Mostrador-Access-Token`, limitada a sus alcances) o las **credenciales de la cuenta** (como Jumpseller: "
+                          "`X-Login-Key` y `X-Auth-Token`, acceso total). Entrega datos completos y permite modificar la tienda.")
 app.include_router(api.router)
+app.include_router(api.oauth)
 app.mount("/static", StaticFiles(directory=os.path.join(TIENDA, "static")), name="static")
 if mcp_app:
     app.mount("/mcp", mcp_app)
@@ -369,7 +372,9 @@ def panel(request):
 
 def phtml(request, plantilla, seccion, status=200, **kw):
     return plantillas.TemplateResponse(request, plantilla, {"request": request, "seccion": seccion,
-                                                           "tienda": datos.config("tienda"), **kw}, status_code=status)
+                                                           "tienda": datos.config("tienda"),
+                                                           "apps_nav": [a for a in accesos.apps() if a["instalada"]], **kw},
+                                       status_code=status)
 
 
 @app.get("/admin/entrar", response_class=HTMLResponse)
@@ -478,13 +483,37 @@ async def p_descuentos_guardar(request: Request):
     return RedirectResponse("/admin/descuentos?guardado=1", status_code=303)
 
 
-@app.get("/admin/envios", response_class=HTMLResponse)
+@app.get("/admin/configuracion", response_class=HTMLResponse)
+def p_config_general(request: Request):
+    panel(request)
+    return phtml(request, "panel_config_general.html", "configuracion", sub="general", guardado=request.query_params.get("guardado"))
+
+
+@app.post("/admin/configuracion")
+async def p_config_general_guardar(request: Request):
+    panel(request)
+    form = await request.form()
+    t = datos.config("tienda")
+    for k in ("email", "horario", "showroom"):
+        if k in form:
+            t[k] = str(form[k]).strip()
+    datos.guardar_config("tienda", t)
+    return RedirectResponse("/admin/configuracion?guardado=1", status_code=303)
+
+
+@app.get("/admin/envios")
+def p_envios_antes():
+    return RedirectResponse("/admin/configuracion/envios", status_code=301)
+
+
+@app.get("/admin/configuracion/envios", response_class=HTMLResponse)
 def p_envios(request: Request):
     panel(request)
-    return phtml(request, "panel_envios.html", "envios", e=reglas.envios(), guardado=request.query_params.get("guardado"))
+    return phtml(request, "panel_envios.html", "configuracion", sub="envios", e=reglas.envios(),
+                 guardado=request.query_params.get("guardado"))
 
 
-@app.post("/admin/envios")
+@app.post("/admin/configuracion/envios")
 async def p_envios_guardar(request: Request):
     panel(request)
     form = await request.form()
@@ -496,7 +525,39 @@ async def p_envios_guardar(request: Request):
                          "dias_habiles": num(f"dias_{z}", e["zonas"][z]["dias_habiles"]),
                          "texto": str(form.get(f"texto_{z}", e["zonas"][z]["texto"])).strip()}
     datos.guardar_config("envios", e)
-    return RedirectResponse("/admin/envios?guardado=1", status_code=303)
+    return RedirectResponse("/admin/configuracion/envios?guardado=1", status_code=303)
+
+
+@app.get("/admin/configuracion/politicas", response_class=HTMLResponse)
+def p_politicas(request: Request):
+    panel(request)
+    return phtml(request, "panel_politicas.html", "configuracion", sub="politicas",
+                 pol=datos.config("politicas")["cambios-y-devoluciones"], guardado=request.query_params.get("guardado"))
+
+
+@app.post("/admin/configuracion/politicas")
+async def p_politicas_guardar(request: Request):
+    panel(request)
+    form = await request.form()
+    pols = datos.config("politicas")
+    pol = pols["cambios-y-devoluciones"]
+    pol["texto"] = str(form.get("texto", pol["texto"])).replace("\r\n", "\n").strip()
+    r = pol["reglas"]
+    for k in ("cambio_dias", "devolucion_dias"):
+        v = str(form.get(k, "")).strip()
+        r[k] = int(v) if v.isdigit() else r[k]
+    r["desde"] = form.get("desde", r["desde"])
+    r["condicion"] = str(form.get("condicion", r["condicion"])).strip()
+    r["envio_del_cambio"] = form.get("envio_del_cambio") or None
+    r["reembolso"] = str(form.get("reembolso", r["reembolso"])).strip()
+    datos.guardar_config("politicas", pols)
+    return RedirectResponse("/admin/configuracion/politicas?guardado=1", status_code=303)
+
+
+@app.get("/politicas/cambios-y-devoluciones", response_class=HTMLResponse)
+def politica_publica(request: Request):
+    pol = datos.config("politicas")["cambios-y-devoluciones"]
+    return html(request, "politica.html", pol=pol)
 
 
 @app.get("/admin/paginas", response_class=HTMLResponse)
@@ -514,20 +575,119 @@ def p_paginas_guardar(request: Request, texto: str = Form("")):
     return RedirectResponse("/admin/paginas?guardado=1", status_code=303)
 
 
-@app.get("/admin/api", response_class=HTMLResponse)
+@app.get("/admin/api")
+def p_api_antes():
+    return RedirectResponse("/admin/configuracion/api", status_code=301)
+
+
+@app.get("/admin/configuracion/api", response_class=HTMLResponse)
 def p_api(request: Request):
+    """Credenciales de la cuenta: la vía tipo Jumpseller (acceso total, sin alcances)."""
     panel(request)
-    login, token = api.credenciales()
-    base = str(request.base_url).rstrip("/")
-    return phtml(request, "panel_api.html", "api", login=login, token=token, base=base, mcp=bool(mcp_app),
-                 regenerado=request.query_params.get("regenerado"))
+    login, token = accesos.credenciales_cuenta()
+    return phtml(request, "panel_api.html", "configuracion", sub="api", login=login, token=token,
+                 base=str(request.base_url).rstrip("/"), mcp=bool(mcp_app), regenerado=request.query_params.get("regenerado"))
 
 
-@app.post("/admin/api/regenerar")
+@app.post("/admin/configuracion/api/regenerar")
 def p_api_regenerar(request: Request):
     panel(request)
-    api.regenerar_token()
-    return RedirectResponse("/admin/api?regenerado=1", status_code=303)
+    accesos.regenerar_token_cuenta()
+    return RedirectResponse("/admin/configuracion/api?regenerado=1", status_code=303)
+
+
+# ── Apps: instaladas, instalar (consentimiento) y desinstalar ──
+@app.get("/admin/configuracion/apps", response_class=HTMLResponse)
+def p_apps(request: Request):
+    panel(request)
+    return phtml(request, "panel_apps.html", "configuracion", sub="apps", apps=accesos.apps(),
+                 desinstalada=request.query_params.get("desinstalada"), instalada=request.query_params.get("instalada"))
+
+
+@app.get("/admin/apps/instalar/{client_id}", response_class=HTMLResponse)
+def p_instalar(request: Request, client_id: str):
+    panel(request)
+    a = accesos.app(client_id)
+    if not a:
+        raise HTTPException(404)
+    ver, cambiar = accesos.consentimiento(a["alcances"])
+    return phtml(request, "panel_instalar.html", "configuracion", a=a, ver=ver, cambiar=cambiar)
+
+
+@app.post("/admin/apps/instalar/{client_id}")
+def p_instalar_ok(request: Request, client_id: str):
+    panel(request)
+    if not accesos.app(client_id):
+        raise HTTPException(404)
+    accesos.instalar(client_id)
+    return RedirectResponse("/admin/configuracion/apps?instalada=1", status_code=303)
+
+
+@app.post("/admin/apps/desinstalar/{client_id}")
+def p_desinstalar(request: Request, client_id: str):
+    panel(request)
+    accesos.desinstalar(client_id)
+    return RedirectResponse("/admin/configuracion/apps?desinstalada=1", status_code=303)
+
+
+# ── Portal de desarrolladores (como el Dev Dashboard de Shopify) ──
+def dhtml(request, plantilla, status=200, **kw):
+    return plantillas.TemplateResponse(request, plantilla, {"request": request, "tienda": datos.config("tienda"),
+                                                           "alcances_por_recurso": accesos.RECURSOS, **kw}, status_code=status)
+
+
+@app.get("/desarrolladores", response_class=HTMLResponse)
+def d_inicio(request: Request):
+    panel(request)
+    return dhtml(request, "dev_apps.html", apps=accesos.apps())
+
+
+@app.get("/desarrolladores/apps/nueva", response_class=HTMLResponse)
+def d_nueva(request: Request):
+    panel(request)
+    return dhtml(request, "dev_nueva.html", error=None)
+
+
+@app.post("/desarrolladores/apps/nueva")
+async def d_nueva_crear(request: Request):
+    panel(request)
+    form = await request.form()
+    alcances = [k for k in form.keys() if k in accesos.ALCANCES]
+    if not str(form.get("nombre", "")).strip():
+        return dhtml(request, "dev_nueva.html", status=400, error="Ponle un nombre a la app.")
+    cid = accesos.crear_app(str(form["nombre"]), alcances)
+    return RedirectResponse(f"/desarrolladores/apps/{cid}?lanzada=1", status_code=303)
+
+
+@app.get("/desarrolladores/apps/{client_id}", response_class=HTMLResponse)
+def d_app(request: Request, client_id: str):
+    panel(request)
+    a = accesos.app(client_id)
+    if not a:
+        raise HTTPException(404)
+    return dhtml(request, "dev_app.html", a=a, base=str(request.base_url).rstrip("/"), q=request.query_params)
+
+
+@app.post("/desarrolladores/apps/{client_id}/version")
+async def d_version(request: Request, client_id: str):
+    panel(request)
+    form = await request.form()
+    accesos.lanzar_version(client_id, [k for k in form.keys() if k in accesos.ALCANCES])
+    return RedirectResponse(f"/desarrolladores/apps/{client_id}?version=1", status_code=303)
+
+
+@app.post("/desarrolladores/apps/{client_id}/rotar")
+def d_rotar(request: Request, client_id: str):
+    panel(request)
+    accesos.rotar_secreto(client_id)
+    return RedirectResponse(f"/desarrolladores/apps/{client_id}?rotado=1", status_code=303)
+
+
+@app.post("/desarrolladores/apps/{client_id}/eliminar")
+def d_eliminar(request: Request, client_id: str):
+    panel(request)
+    accesos.eliminar_app(client_id)
+    return RedirectResponse("/desarrolladores?eliminada=1", status_code=303)
 
 
 @app.get("/admin/exportar/{que}.csv")
@@ -564,13 +724,19 @@ class _PuertaMcp:
             if scope["path"] == "/mcp":
                 scope = dict(scope, path="/mcp/", raw_path=b"/mcp/")
             h = {k.decode().lower(): v.decode() for k, v in scope.get("headers", [])}
-            login, token = api.credenciales()
-            if not (hmac.compare_digest(h.get("x-login-key", ""), login) and hmac.compare_digest(h.get("x-auth-token", ""), token)):
-                cuerpo = json.dumps({"detail": "Credenciales inválidas. Cópialas desde el panel: Configuración → API."}).encode()
+            acceso, error = api.resolver_acceso(h)
+            if error:
+                cuerpo = json.dumps({"detail": error}, ensure_ascii=False).encode()
                 await send({"type": "http.response.start", "status": 401, "headers": [(b"content-type", b"application/json")]})
                 await send({"type": "http.response.body", "body": cuerpo})
                 return
             mcp_mostrador.BASE["url"] = f"{h.get('x-forwarded-proto', scope.get('scheme', 'http'))}://{h.get('host', '')}"
+            ficha = api.ACCESO.set(acceso)
+            try:
+                await self.app(scope, receive, send)
+            finally:
+                api.ACCESO.reset(ficha)
+            return
         await self.app(scope, receive, send)
 
 

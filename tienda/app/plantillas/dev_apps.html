@@ -1,0 +1,19 @@
+{% extends "dev_base.html" %}
+{% block contenido %}
+<div class="cabeza"><div><h1>Apps</h1>
+  <p class="bajada">Crea una app para conectar tu tienda con otra aplicación (por ejemplo, un agente de WhatsApp) y dale solo los permisos que necesita.</p></div>
+  <a class="boton" href="/desarrolladores/apps/nueva">Crear app</a></div>
+{% if request.query_params.get("eliminada") %}<p class="guardado" role="status">App eliminada.</p>{% endif %}
+<div class="hoja">
+<table>
+  <tr><th>App</th><th>Versión</th><th>En la tienda</th><th>Creada</th></tr>
+  {% for x in apps %}
+  <tr><td><a href="/desarrolladores/apps/{{ x.client_id }}"><strong>{{ x.nombre }}</strong></a></td><td>{{ x.version }}</td>
+    <td>{% if x.instalada %}<span class="estado e-listo">instalada</span>{% else %}<span class="estado">sin instalar</span>{% endif %}</td>
+    <td>{{ x.creada[:10] }}</td></tr>
+  {% else %}
+  <tr><td colspan="4">Todavía no tienes apps.</td></tr>
+  {% endfor %}
+</table>
+</div>
+{% endblock %}

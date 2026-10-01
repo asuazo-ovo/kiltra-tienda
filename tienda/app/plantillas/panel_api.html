@@ -1,24 +1,27 @@
 {% extends "panel_base.html" %}
-{% block titulo %}Configuración → API{% endblock %}
+{% from "_panel.html" import subnav %}
+{% block titulo %}Credenciales de API{% endblock %}
 {% block contenido %}
-<div class="cabeza"><div><h1>Configuración → API</h1>
-  <p class="bajada">Credenciales para conectar tu tienda con otras aplicaciones: un sistema de bodega, una planilla o un asistente de WhatsApp.</p></div></div>
+<h1 style="margin-bottom:14px">Configuración</h1>
+{{ subnav(sub) }}
+<div class="cabeza"><div><h2 style="margin:0">Credenciales de API de la cuenta</h2>
+  <p class="bajada">La forma rápida de conectar una aplicación: dos credenciales con <strong>acceso total</strong> a tu tienda, sin permisos por tema. Si quieres limitar lo que una aplicación puede ver o hacer, crea una app en <a href="/desarrolladores">Desarrollar apps</a>.</p></div></div>
 <div class="aviso"><strong>Estas credenciales abren tu tienda completa.</strong>Quien las tenga puede ver los datos de todos tus clientes (nombre, correo, teléfono y dirección) y modificar tu stock y tus pedidos. No las pegues en un chat ni en un documento compartido.</div>
-{% if regenerado %}<p class="guardado" role="status">Token regenerado. Las aplicaciones que usaban el anterior dejaron de funcionar.</p>{% endif %}
+{% if regenerado %}<p class="guardado" role="status">Auth Token regenerado. Las aplicaciones que usaban el anterior dejaron de funcionar.</p>{% endif %}
 <div class="dos">
   <div class="form">
     <div class="campo"><label>Login Key</label><div class="clave"><code id="login">{{ login }}</code></div></div>
     <div class="campo"><label>Auth Token</label><div class="clave"><code id="token">{{ token }}</code></div>
       <p class="ayuda">Se envían en los encabezados <code>X-Login-Key</code> y <code>X-Auth-Token</code> de cada llamada.</p></div>
-    <form method="post" action="/admin/api/regenerar" onsubmit="return confirm('Las aplicaciones conectadas van a dejar de funcionar hasta que les pongas el token nuevo. ¿Regenerar?')">
-      <button class="boton boton-peligro" type="submit">Regenerar token</button></form>
+    <form method="post" action="/admin/configuracion/api/regenerar" onsubmit="return confirm('Las aplicaciones conectadas con estas credenciales van a dejar de funcionar hasta que les pongas el token nuevo. ¿Regenerar?')">
+      <button class="boton boton-peligro" type="submit">Regenerar Auth Token</button></form>
   </div>
   <div class="form">
     <h2 style="margin-top:0">Direcciones</h2>
     <div class="campo"><label>API</label><div class="clave"><code>{{ base }}/api/v1</code></div>
       <p class="ayuda"><a href="/api/docs" target="_blank" rel="noopener">Documentación de la API</a></p></div>
     {% if mcp %}<div class="campo"><label>Servidor MCP</label><div class="clave"><code>{{ base }}/mcp</code></div>
-      <p class="ayuda">Para administrar tu tienda desde un asistente de IA (Claude, ChatGPT). Usa las mismas credenciales y puede <strong>modificar</strong> tu tienda.</p></div>{% endif %}
+      <p class="ayuda">Para administrar tu tienda desde un asistente de IA (Claude, ChatGPT). Acepta estas credenciales o el token de una app, y puede <strong>modificar</strong> tu tienda.</p></div>{% endif %}
   </div>
 </div>
 {% endblock %}

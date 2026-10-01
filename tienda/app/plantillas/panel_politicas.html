@@ -1,0 +1,32 @@
+{% extends "panel_base.html" %}
+{% from "_panel.html" import subnav %}
+{% block titulo %}Políticas{% endblock %}
+{% block contenido %}
+<h1 style="margin-bottom:14px">Configuración</h1>
+{{ subnav(sub) }}
+<div class="cabeza"><div><h2 style="margin:0">{{ pol.titulo }}</h2>
+  <p class="bajada">Dos formatos, como en las plataformas grandes: el <strong>texto</strong> que lee el cliente en tu tienda y las <strong>reglas</strong> con datos, que usan las apps conectadas (por ejemplo, un agente que calcula si un cambio todavía está en plazo). Mantenlos de acuerdo.</p></div>
+  <a class="boton boton-sec" href="/politicas/cambios-y-devoluciones" target="_blank" rel="noopener">Ver en la tienda</a></div>
+{% if guardado %}<p class="guardado" role="status">Política guardada.</p>{% endif %}
+<form method="post" class="dos">
+  <div class="form">
+    <div class="campo"><label for="texto">Texto de la política</label>
+      <textarea id="texto" name="texto" style="min-height:260px;font-family:inherit;font-size:15px">{{ pol.texto }}</textarea></div>
+  </div>
+  <div class="form">
+    <h2 style="margin-top:0">Reglas</h2>
+    <div class="campo"><label for="cambio_dias">Plazo para cambios (días)</label><input id="cambio_dias" name="cambio_dias" inputmode="numeric" value="{{ pol.reglas.cambio_dias }}"></div>
+    <div class="campo"><label for="devolucion_dias">Plazo para devoluciones (días)</label><input id="devolucion_dias" name="devolucion_dias" inputmode="numeric" value="{{ pol.reglas.devolucion_dias }}"></div>
+    <div class="campo"><label for="desde">A partir de</label>
+      <select id="desde" name="desde">{% for v, t in [("entrega", "La entrega del pedido"), ("compra", "La fecha de compra")] %}<option value="{{ v }}" {% if pol.reglas.desde == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+    <div class="campo"><label for="condicion">Condición de la prenda</label><input id="condicion" name="condicion" value="{{ pol.reglas.condicion }}"></div>
+    <div class="campo"><label for="envio_del_cambio">Envío del cambio o la devolución</label>
+      <select id="envio_del_cambio" name="envio_del_cambio">
+        {% for v, t in [("", "Sin definir"), ("cliente", "Lo paga el cliente"), ("tienda", "Lo paga la tienda")] %}<option value="{{ v }}" {% if (pol.reglas.envio_del_cambio or "") == v %}selected{% endif %}>{{ t }}</option>{% endfor %}
+      </select>
+      {% if not pol.reglas.envio_del_cambio %}<p class="ayuda" style="color:#B45309">Sin definir: cada persona del equipo lo resuelve a su manera.</p>{% endif %}</div>
+    <div class="campo"><label for="reembolso">Reembolso</label><input id="reembolso" name="reembolso" value="{{ pol.reglas.reembolso }}"></div>
+    <button class="boton" type="submit">Guardar política</button>
+  </div>
+</form>
+{% endblock %}

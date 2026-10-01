@@ -1,3 +1,13 @@
+{% macro subnav(sub) %}
+<nav class="subnav" aria-label="Configuración">
+  {% for clave, nombre, ruta in [("general", "General", "/admin/configuracion"), ("envios", "Envío y entrega", "/admin/configuracion/envios"),
+                                 ("politicas", "Políticas", "/admin/configuracion/politicas"), ("apps", "Apps", "/admin/configuracion/apps"),
+                                 ("api", "Credenciales de API", "/admin/configuracion/api")] %}
+  <a href="{{ ruta }}" {% if sub == clave %}aria-current="page"{% endif %}>{{ nombre }}</a>
+  {% endfor %}
+</nav>
+{% endmacro %}
+
 {% macro estado(e) -%}
 {%- set clase = {"pago pendiente": "e-pendiente", "preventa": "e-pendiente", "pagado": "e-curso", "en preparación": "e-curso",
                  "despachado": "e-curso", "en cambio": "e-curso", "entregado": "e-listo", "cancelado": "e-problema",

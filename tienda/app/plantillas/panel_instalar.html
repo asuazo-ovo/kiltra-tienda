@@ -1,0 +1,25 @@
+{% extends "panel_base.html" %}
+{% block titulo %}Instalar app{% endblock %}
+{% block contenido %}
+<div class="consentimiento">
+  <h1 style="margin-bottom:16px">Instalar app</h1>
+  <p class="alerta" style="margin:0">Esta app no ha sido revisada por {{ plataforma }}</p>
+  <p>Instálala solo si confías en quien la hizo. Va a poder entrar a tu tienda sin pedirte permiso cada vez.</p>
+  <div class="form" style="margin-top:16px;max-width:none">
+    <p style="margin:0 0 4px"><strong>{{ a.nombre }}</strong> · {{ tienda.nombre }}</p>
+    <h2 style="margin-top:14px">Esta app podrá ver:</h2>
+    <ul class="lista-acceso">
+      {% for v in ver %}<li>{{ v }}</li>{% endfor %}
+      {% if not ver %}<li>Nada: la app no pidió ningún permiso.</li>{% endif %}
+    </ul>
+    {% if cambiar %}
+    <h2 style="color:#B91C1C">Y podrá modificar:</h2>
+    <ul class="lista-acceso">{% for c in cambiar %}<li style="color:#B91C1C">{{ c }}</li>{% endfor %}</ul>
+    {% endif %}
+    <form method="post" style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
+      <a class="boton boton-sec" href="/admin/configuracion/apps">Cancelar</a>
+      <button class="boton" type="submit">Instalar</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

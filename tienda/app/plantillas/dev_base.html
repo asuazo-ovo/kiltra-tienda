@@ -1,0 +1,17 @@
+{% extends "panel_base.html" %}
+{% block titulo %}Desarrolladores{% endblock %}
+{% block cuerpo %}
+<div class="marco dev">
+  <nav class="lateral" aria-label="Portal de desarrolladores">
+    <a class="logo" href="/desarrolladores">{% include "_logo_mostrador.html" %}{{ plataforma|lower }}</a>
+    <div class="marca-dev">para desarrolladores</div>
+    <div class="separa"></div>
+    <a class="item" href="/desarrolladores" {% if not a %}aria-current="page"{% endif %}>Apps</a>
+    {% if a %}<a class="item item-app" href="/desarrolladores/apps/{{ a.client_id }}" aria-current="page">{{ a.nombre }}</a>{% endif %}
+    <a class="item" href="/api/docs" target="_blank" rel="noopener">Documentación de la API</a>
+    <div class="separa"></div>
+    <a class="item" href="/admin/configuracion/apps">Volver a {{ tienda.nombre }}</a>
+  </nav>
+  <main class="trabajo" id="contenido">{% block contenido %}{% endblock %}</main>
+</div>
+{% endblock %}

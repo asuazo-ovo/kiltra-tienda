@@ -1,23 +1,35 @@
 {% extends "panel_base.html" %}
-{% block titulo %}Envíos{% endblock %}
+{% from "_panel.html" import subnav %}
+{% block titulo %}Envío y entrega{% endblock %}
 {% block contenido %}
-<div class="cabeza"><div><h1>Envíos</h1>
-  <p class="bajada">Tu tienda calcula el costo y la fecha estimada con estos valores. La fecha estimada cuenta días hábiles <strong>desde la compra</strong>.</p></div></div>
+<h1 style="margin-bottom:14px">Configuración</h1>
+{{ subnav(sub) }}
+<div class="cabeza"><div><h2 style="margin:0">Envío y entrega</h2>
+  <p class="bajada">Perfil general: todos los productos. Cada zona tiene una tarifa con su precio y su tiempo de tránsito. La fecha estimada que ve el cliente cuenta esos días hábiles <strong>desde la compra</strong>.</p></div></div>
 {% if guardado %}<p class="guardado" role="status">Envíos guardados. La tienda ya usa los valores nuevos.</p>{% endif %}
-<form class="form" method="post">
-  <div class="campo"><label for="gratis_desde">Despacho gratis desde ($)</label>
-    <input id="gratis_desde" name="gratis_desde" inputmode="numeric" value="{{ e.gratis_desde }}"></div>
-  <p class="ayuda" style="margin:-6px 0 18px">Courier: {{ e.courier }}.</p>
-  {% for z, v in e.zonas.items() %}
-  <h2>{{ {"RM": "Región Metropolitana", "Regiones": "Regiones", "Extremo": "Zonas extremas"}[z] }}</h2>
-  <div class="fila">
-    <div class="campo"><label for="costo_{{ z }}">Costo ($)</label><input id="costo_{{ z }}" name="costo_{{ z }}" inputmode="numeric" value="{{ v.costo }}"></div>
-    <div class="campo"><label for="dias_{{ z }}">Días hábiles para la fecha estimada</label><input id="dias_{{ z }}" name="dias_{{ z }}" inputmode="numeric" value="{{ v.dias_habiles }}"></div>
-    <div class="campo"><label for="texto_{{ z }}">Texto que ve el cliente</label><input id="texto_{{ z }}" name="texto_{{ z }}" value="{{ v.texto }}"></div>
+<form method="post">
+  <div class="hoja" style="max-width:900px">
+    <table>
+      <tr><th>Zona</th><th>Tarifa</th><th class="num">Precio ($)</th><th class="num">Días hábiles</th><th>Tiempo de tránsito que ve el cliente</th></tr>
+      {% for z, v in e.zonas.items() %}
+      <tr>
+        <td><strong>{{ {"RM": "Región Metropolitana", "Regiones": "Regiones", "Extremo": "Zonas extremas"}[z] }}</strong>
+          <br><small>{{ e.comunas.values()|select("equalto", z)|list|length }} comunas</small></td>
+        <td>Estándar · {{ e.courier }}</td>
+        <td class="num"><label class="sr" for="costo_{{ z }}">Precio {{ z }}</label><input class="corto" id="costo_{{ z }}" name="costo_{{ z }}" inputmode="numeric" value="{{ v.costo }}"></td>
+        <td class="num"><label class="sr" for="dias_{{ z }}">Días {{ z }}</label><input class="corto" id="dias_{{ z }}" name="dias_{{ z }}" inputmode="numeric" value="{{ v.dias_habiles }}"></td>
+        <td><label class="sr" for="texto_{{ z }}">Texto {{ z }}</label><input class="corto" style="width:100%;text-align:left" id="texto_{{ z }}" name="texto_{{ z }}" value="{{ v.texto }}"></td>
+      </tr>
+      {% endfor %}
+    </table>
   </div>
-  {% endfor %}
-  <h2>Comunas con despacho</h2>
-  <p class="ayuda">{{ e.comunas|length }} comunas: {{ e.comunas.keys()|join(", ") }}. Una comuna que no está aquí no se puede elegir al pagar.</p>
-  <p style="margin-top:18px"><button class="boton" type="submit">Guardar envíos</button></p>
+  <div class="form" style="margin-top:16px">
+    <div class="campo"><label for="gratis_desde">Envío gratis en pedidos desde ($)</label>
+      <input id="gratis_desde" name="gratis_desde" inputmode="numeric" value="{{ e.gratis_desde }}" style="max-width:220px">
+      <p class="ayuda">Condición por importe del pedido: vale para todas las zonas.</p></div>
+    <h2>Comunas con despacho</h2>
+    <p class="ayuda">{{ e.comunas|length }} comunas: {{ e.comunas.keys()|join(", ") }}. Una comuna que no está aquí no se puede elegir al pagar.</p>
+    <p style="margin-top:18px"><button class="boton" type="submit">Guardar envíos</button></p>
+  </div>
 </form>
 {% endblock %}

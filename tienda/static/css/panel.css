@@ -100,3 +100,27 @@ td input[type=number], td input.corto { width: 72px; border: 1px solid #C9CCC6; 
   .dos, .fila { grid-template-columns: 1fr; }
   .buscar input { min-width: 0; width: 100%; }
 }
+
+/* ── Menú agrupado como Shopify, Configuración con submenú y portal de desarrolladores ── */
+.lateral .grupo { font-size: 12px; font-weight: 600; color: #A9C7B6; padding: 14px 10px 4px; }
+.lateral a.item-app { font-weight: 400; font-size: 14px; padding-left: 18px; }
+.subnav { display: flex; gap: 4px; flex-wrap: wrap; margin: 0 0 22px; border-bottom: 1px solid var(--linea); }
+.subnav a { padding: 8px 12px; text-decoration: none; color: var(--gris); font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.subnav a[aria-current="page"] { color: var(--verde); border-color: var(--verde); }
+.permiso { display: grid; grid-template-columns: 1fr auto auto; gap: 6px 22px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--linea); }
+.permiso:last-child { border-bottom: 0; }
+.permiso small { display: block; color: var(--gris); }
+.permiso label { font-weight: 500; font-size: 14px; display: flex; gap: 6px; align-items: center; }
+.consentimiento { max-width: 620px; }
+.consentimiento .alerta { background: #FEF3C7; color: #78350F; padding: 12px 16px; border-radius: 6px 6px 0 0; font-weight: 600; }
+.consentimiento .alerta + p { background: var(--blanco); margin: 0; padding: 10px 16px 14px; border: 1px solid var(--linea); border-top: 0; border-radius: 0 0 6px 6px; color: var(--gris); }
+.lista-acceso { list-style: none; padding: 0; margin: 0; }
+.lista-acceso li { padding: 12px 0; border-bottom: 1px solid var(--linea); }
+.lista-acceso li:last-child { border-bottom: 0; }
+.lista-acceso strong { display: block; }
+.oculto-clave { -webkit-text-security: disc; }
+/* Portal de desarrolladores: otra sala de la misma plataforma, más sobria */
+.dev .lateral { background: #22302A; }
+.dev .lateral a.item[aria-current="page"] { background: #E6EEE9; color: #22302A; }
+.dev .marca-dev { font-size: 12px; color: #A9C7B6; padding: 2px 10px 0; }
+code.alc { background: var(--fondo); border: 1px solid var(--linea); border-radius: 4px; padding: 1px 6px; font-size: 13px; }

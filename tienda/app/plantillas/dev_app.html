@@ -1,0 +1,39 @@
+{% extends "dev_base.html" %}
+{% from "_alcances.html" import selector %}
+{% block contenido %}
+<div class="cabeza"><div><h1>{{ a.nombre }}</h1>
+  <p class="bajada">Versión {{ a.version }} · {% if a.instalada %}instalada en {{ tienda.nombre }} (versión {{ a.version_instalada }}){% else %}sin instalar{% endif %}</p></div>
+  {% if not a.instalada or a.version|string != a.version_instalada %}<a class="boton" href="/admin/apps/instalar/{{ a.client_id }}">Instalar app</a>{% endif %}</div>
+{% if q.get("lanzada") %}<p class="guardado" role="status">App creada y versión 1 lanzada. Para que pueda entrar a la tienda, instálala.</p>{% endif %}
+{% if q.get("version") %}<p class="guardado" role="status">Versión {{ a.version }} lanzada. La tienda tiene que aprobar los permisos nuevos: usa «Instalar app».</p>{% endif %}
+{% if q.get("rotado") %}<p class="guardado" role="status">Secreto rotado. Los tokens nuevos se piden con el secreto nuevo; los ya entregados siguen hasta que vencen (24 horas).</p>{% endif %}
+
+<h2>Credenciales</h2>
+<div class="form" style="max-width:820px">
+  <div class="campo"><label>ID de cliente</label><div class="clave"><code id="client_id">{{ a.client_id }}</code></div></div>
+  <div class="campo"><label>Secreto del cliente</label>
+    <div class="clave"><code id="secreto" data-v="{{ a.secreto }}">••••••••••••••••••••••••</code>
+      <button class="boton boton-sec" type="button" onclick="const s=document.getElementById('secreto');const ver=s.textContent.startsWith('•');s.textContent=ver?s.dataset.v:'••••••••••••••••••••••••';this.textContent=ver?'Ocultar':'Mostrar'">Mostrar</button>
+      <form method="post" action="/desarrolladores/apps/{{ a.client_id }}/rotar" onsubmit="return confirm('¿Generar un secreto nuevo? Los tokens nuevos tendrán que pedirse con él. Los que ya se entregaron siguen funcionando hasta que vencen.')">
+        <button class="boton boton-peligro" type="submit">Rotar</button></form></div>
+    <p class="ayuda">Trátalo como la llave de tu tienda: pégalo solo dentro de la herramienta que se conecta, nunca en un chat ni en un correo.</p></div>
+</div>
+
+<h2>Cómo se conecta una aplicación</h2>
+<div class="form" style="max-width:820px">
+  <p style="margin-top:0">1. Pide un token (dura 24 horas):</p>
+  <div class="clave"><code>POST {{ base }}/api/oauth/access_token<br>grant_type=client_credentials &amp; client_id=… &amp; client_secret=…</code></div>
+  <p>2. Úsalo en cada llamada a <code>{{ base }}/api/v1</code>, en el encabezado <code>X-Mostrador-Access-Token</code>. La API rechaza lo que los alcances no cubren.</p>
+</div>
+
+<h2>Alcances</h2>
+<p class="bajada">Los alcances quedan fijos en cada versión. Para cambiarlos, lanza una versión nueva y vuelve a instalarla: la tienda tiene que aprobarla.</p>
+<form method="post" action="/desarrolladores/apps/{{ a.client_id }}/version">
+  {{ selector(alcances_por_recurso, a.alcances) }}
+  <p style="margin-top:16px"><button class="boton" type="submit">Lanzar versión nueva</button></p>
+</form>
+
+<h2>Eliminar</h2>
+<form method="post" action="/desarrolladores/apps/{{ a.client_id }}/eliminar" onsubmit="return confirm('¿Eliminar {{ a.nombre }}? Se borran sus credenciales y deja de funcionar en la tienda.')">
+  <button class="boton boton-peligro" type="submit">Eliminar app</button></form>
+{% endblock %}

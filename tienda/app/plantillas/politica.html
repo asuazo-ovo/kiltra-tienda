@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block titulo %}{{ pol.titulo }} — Kiltra{% endblock %}
+{% block contenido %}
+<div class="contenedor pagina">
+  <h1 class="letrero" style="margin-bottom:16px">cambios y devoluciones</h1>
+  <div class="texto">
+    {% for parrafo in pol.texto.split("\n\n") %}<p>{{ parrafo }}</p>{% endfor %}
+  </div>
+</div>
+{% endblock %}

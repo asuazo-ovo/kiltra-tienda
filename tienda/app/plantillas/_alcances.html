@@ -1,0 +1,11 @@
+{% macro selector(alcances_por_recurso, marcados) %}
+<div class="form" style="max-width:820px">
+  {% for r, nombre, lee, escribe in alcances_por_recurso %}
+  <div class="permiso">
+    <div><strong>{{ nombre }}</strong><small>{{ lee }}</small></div>
+    <label><input type="checkbox" name="leer_{{ r }}" {% if "leer_" ~ r in marcados %}checked{% endif %}> <code class="alc">leer_{{ r }}</code></label>
+    <label><input type="checkbox" name="escribir_{{ r }}" {% if "escribir_" ~ r in marcados %}checked{% endif %}> <code class="alc">escribir_{{ r }}</code></label>
+  </div>
+  {% endfor %}
+</div>
+{% endmacro %}

@@ -1,0 +1,36 @@
+{% extends "panel_base.html" %}
+{% from "_panel.html" import subnav %}
+{% block titulo %}Apps{% endblock %}
+{% block contenido %}
+<h1 style="margin-bottom:14px">Configuración</h1>
+{{ subnav(sub) }}
+<div class="cabeza"><div><h2 style="margin:0">Apps</h2>
+  <p class="bajada">Las aplicaciones conectadas a tu tienda. Cada una ve y hace solo lo que aprobaste al instalarla.</p></div>
+  <a class="boton" href="/desarrolladores">Desarrollar apps</a></div>
+{% if instalada %}<p class="guardado" role="status">App instalada.</p>{% endif %}
+{% if desinstalada %}<p class="guardado" role="status">App desinstalada. Ya no puede entrar a tu tienda.</p>{% endif %}
+<div class="hoja">
+<table>
+  <tr><th>App</th><th>Estado</th><th>Permisos aprobados</th><th></th></tr>
+  {% for a in apps %}
+  <tr>
+    <td><strong>{{ a.nombre }}</strong><br><small>Versión {{ a.version_instalada or a.version }}</small></td>
+    <td>{% if a.instalada %}<span class="estado e-listo">instalada</span><br><small>desde {{ a.instalada[:10] }}</small>
+        {% if a.version|string != a.version_instalada %}<br><small style="color:#B45309">Hay una versión nueva por aprobar</small>{% endif %}
+        {% else %}<span class="estado">sin instalar</span>{% endif %}</td>
+    <td>{% for x in (a.alcances_instalados if a.instalada else a.alcances) %}<code class="alc">{{ x }}</code> {% endfor %}</td>
+    <td style="white-space:nowrap">
+      {% if a.instalada and a.version|string == a.version_instalada %}
+      <form method="post" action="/admin/apps/desinstalar/{{ a.client_id }}" onsubmit="return confirm('¿Desinstalar {{ a.nombre }}? Dejará de funcionar de inmediato: no podrá ver ni modificar nada de tu tienda.')">
+        <button class="boton boton-peligro" type="submit">Desinstalar</button></form>
+      {% else %}
+      <a class="boton boton-sec" href="/admin/apps/instalar/{{ a.client_id }}">{{ "Revisar y aprobar" if a.instalada else "Instalar" }}</a>
+      {% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="4">No hay apps. Crea una en <a href="/desarrolladores">Desarrollar apps</a>.</td></tr>
+  {% endfor %}
+</table>
+</div>
+{% endblock %}

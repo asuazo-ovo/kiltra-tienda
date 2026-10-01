@@ -53,6 +53,19 @@ def config_inicial():
         ],
         "paginas": {"preguntas-frecuentes": {"titulo": "Preguntas frecuentes",
                                              "texto": documentos.preguntas_frecuentes().strip()}},
+        # Como en Shopify: la política existe en dos formatos, texto libre y reglas con datos. Se siembra con la
+        # versión de la web (30 días de cambio, 10 de devolución). Quién paga el envío del cambio no está escrito
+        # en ninguna parte: queda «sin definir», para que lo decida el Preparar del curso.
+        "politicas": {
+            "cambios-y-devoluciones": {
+                "titulo": "Política de cambios y devoluciones",
+                "texto": (f"Cambios: tienes {F['cambios_dias']['web']} días desde que recibes tu pedido para cambiar tu prenda "
+                          "por otra talla, color o producto. La prenda tiene que estar sin uso y con su etiqueta.\n\n"
+                          f"Devoluciones: {F['devoluciones']['web']}"),
+                "reglas": {"cambio_dias": F["cambios_dias"]["web"], "devolucion_dias": 10, "desde": "entrega",
+                           "condicion": "sin uso y con etiqueta", "envio_del_cambio": None, "reembolso": "al mismo medio de pago"},
+            },
+        },
     }
 
 
@@ -137,7 +150,31 @@ def verificar_siembra():
         ("Costos de despacho por zona", all(env["zonas"][z]["costo"] == F["costo_despacho"][z] for z in env["zonas"])),
         ("Plazo prometido por zona", all(env["zonas"][z]["dias_habiles"] == F["plazo_prometido_dias"][z] for z in env["zonas"])),
         ("Las comunas del checkout son las del caso", env["comunas"] == caso.COMUNAS),
+        ("Las reglas de cambio son las de la web (30 días)",
+         config("politicas")["cambios-y-devoluciones"]["reglas"]["cambio_dias"] == F["cambios_dias"]["web"]),
+        ("El texto de devoluciones es el de la web",
+         F["devoluciones"]["web"] in config("politicas")["cambios-y-devoluciones"]["texto"]),
     ]
+
+
+# ─────────────────────────── Los tres estados de un pedido (como Shopify) ───────────────────────────
+_ESTADOS = {  # estado interno → (estado del pedido, del pago, de la preparación, de la devolución)
+    "pago pendiente": ("abierto", "pendiente", "no preparado", None),
+    "pagado": ("abierto", "pagado", "no preparado", None),
+    "preventa": ("abierto", "pagado", "en espera", None),
+    "en preparación": ("abierto", "pagado", "en preparación", None),
+    "despachado": ("abierto", "pagado", "despachado", None),
+    "entregado": ("cerrado", "pagado", "entregado", None),
+    "en cambio": ("abierto", "pagado", "entregado", "cambio en curso"),
+    "reembolsado": ("cancelado", "reembolsado", "no preparado", None),
+    "cancelado": ("cancelado", "anulado", "no preparado", None),
+    "pago rechazado": ("cancelado", "rechazado", "no preparado", None),
+}
+
+
+def estados_de(estado):
+    o, p, f, d = _ESTADOS.get(estado, ("abierto", "pendiente", "no preparado", None))
+    return {"order_status": o, "payment_status": p, "fulfillment_status": f, "return_status": d}
 
 
 # ─────────────────────────── Clientes (la plataforma los arma desde los pedidos) ───────────────────────────

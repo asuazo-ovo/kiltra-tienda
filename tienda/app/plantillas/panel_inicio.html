@@ -1,0 +1,16 @@
+{% extends "panel_base.html" %}
+{% from "_panel.html" import tabla_pedidos %}
+{% block titulo %}Inicio{% endblock %}
+{% block contenido %}
+<h1>Hola, Rocío</h1>
+<p class="frase">
+  Tienes <strong>{{ r.por_despachar }} {{ "pedido" if r.por_despachar == 1 else "pedidos" }}</strong> por preparar o confirmar
+  {%- if r.variantes_agotadas %}, y <strong>{{ r.variantes_agotadas }} variantes</strong> publicadas sin stock{% endif %}
+  {%- if r.variantes_bajo %}. Otras {{ r.variantes_bajo }} tienen una o dos unidades{% endif %}.
+</p>
+<p class="bajada">Pedidos válidos registrados en {{ plataforma }}: {{ r.pedidos }}, por {{ pesos(r.ventas) }}.</p>
+
+<h2>Últimos pedidos</h2>
+{{ tabla_pedidos(ultimos) }}
+<p style="margin-top:12px"><a href="/admin/pedidos">Ver todos los pedidos</a></p>
+{% endblock %}

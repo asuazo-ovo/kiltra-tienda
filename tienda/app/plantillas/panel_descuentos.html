@@ -1,0 +1,27 @@
+{% extends "panel_base.html" %}
+{% block titulo %}Descuentos{% endblock %}
+{% block contenido %}
+<div class="cabeza"><div><h1>Descuentos</h1><p class="bajada">Los códigos que tus clientes escriben al pagar. Un código vencido sigue aquí hasta que lo borres.</p></div></div>
+{% if guardado %}<p class="guardado" role="status">Descuentos guardados.</p>{% endif %}
+<form method="post">
+  <input type="hidden" name="n" value="{{ descuentos|length }}">
+  <div class="hoja">
+  <table>
+    <tr><th>Código</th><th class="num">%</th><th>Solo primera compra</th><th>Vence</th><th>Activo</th><th>Borrar</th></tr>
+    {% for d in descuentos + [{"codigo": "", "porcentaje": 10, "solo_primera_compra": False, "vence": None, "activo": True}] %}
+    {% set i = loop.index0 %}
+    <tr>
+      <td><label class="sr" for="codigo_{{ i }}">Código</label><input class="corto" style="width:160px;text-align:left" id="codigo_{{ i }}" name="codigo_{{ i }}" value="{{ d.codigo }}" placeholder="{{ 'Código nuevo' if not d.codigo }}"></td>
+      <td class="num"><input type="number" min="1" max="90" name="porcentaje_{{ i }}" value="{{ d.porcentaje }}" aria-label="Porcentaje"></td>
+      <td><input type="checkbox" name="primera_{{ i }}" {% if d.solo_primera_compra %}checked{% endif %} aria-label="Solo primera compra"></td>
+      <td><input type="date" name="vence_{{ i }}" value="{{ d.vence or '' }}" aria-label="Vence">
+        {% if d.vence and d.vence < hoy %}<br><small style="color:#B91C1C">Vencido</small>{% endif %}</td>
+      <td><input type="checkbox" name="activo_{{ i }}" {% if d.activo %}checked{% endif %} aria-label="Activo"></td>
+      <td>{% if d.codigo %}<input type="checkbox" name="borrar_{{ i }}" aria-label="Borrar {{ d.codigo }}">{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+  <p><button class="boton" type="submit">Guardar descuentos</button></p>
+</form>
+{% endblock %}

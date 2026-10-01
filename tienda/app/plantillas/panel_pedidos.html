@@ -1,0 +1,16 @@
+{% extends "panel_base.html" %}
+{% from "_panel.html" import tabla_pedidos %}
+{% block titulo %}Pedidos{% endblock %}
+{% block contenido %}
+<div class="cabeza">
+  <div><h1>Pedidos</h1><p class="bajada">{{ pedidos|length }} {{ "pedido" if pedidos|length == 1 else "pedidos" }}{% if estado %} en «{{ estado }}»{% endif %}.</p></div>
+  <a class="boton boton-sec" href="/admin/exportar/pedidos.csv">Exportar pedidos (CSV)</a>
+</div>
+<div class="filtros">
+  <a href="/admin/pedidos" {% if not estado %}aria-current="true"{% endif %}>Todos</a>
+  {% for e, n in estados %}<a href="/admin/pedidos?estado={{ e|urlencode }}" {% if estado == e %}aria-current="true"{% endif %}>{{ e|capitalize }} · {{ n }}</a>{% endfor %}
+  <form class="buscar" method="get" style="margin-left:auto"><input type="hidden" name="estado" value="{{ estado }}">
+    <label class="sr" for="q">Buscar pedidos</label><input id="q" name="q" value="{{ q }}" placeholder="Número, cliente o correo"></form>
+</div>
+{{ tabla_pedidos(pedidos) }}
+{% endblock %}

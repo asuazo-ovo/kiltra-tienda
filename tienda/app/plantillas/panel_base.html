@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Panel{% endblock %} · {{ tienda.nombre }} · {{ plataforma }}</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..700&display=swap">
+  <link rel="stylesheet" href="/static/css/panel.css">
+  <link rel="icon" href="/static/mostrador.svg" type="image/svg+xml">
+</head>
+<body>
+  <div class="demo">{{ plataforma }} es una plataforma ficticia para un curso de OVO. La tienda y sus clientes son inventados.</div>
+  {% block cuerpo %}
+  <div class="marco">
+    <nav class="lateral" aria-label="Panel">
+      <a class="logo" href="/admin">{% include "_logo_mostrador.html" %}{{ plataforma|lower }}</a>
+      <div class="tienda-actual">Tu tienda<strong>{{ tienda.nombre }}</strong></div>
+      {% for clave, nombre, ruta in [("inicio", "Inicio", "/admin"), ("pedidos", "Pedidos", "/admin/pedidos"),
+                                     ("productos", "Productos y stock", "/admin/productos"), ("clientes", "Clientes", "/admin/clientes"),
+                                     ("descuentos", "Descuentos", "/admin/descuentos"), ("envios", "Envíos", "/admin/envios"),
+                                     ("paginas", "Páginas", "/admin/paginas")] %}
+      <a class="item" href="{{ ruta }}" {% if seccion == clave %}aria-current="page"{% endif %}>{{ nombre }}</a>
+      {% endfor %}
+      <div class="separa"></div>
+      <a class="item" href="/admin/api" {% if seccion == 'api' %}aria-current="page"{% endif %}>Configuración → API</a>
+      <a class="item" href="/" target="_blank" rel="noopener">Ver mi tienda</a>
+      <div class="abajo">Rocío Valdés · <a href="/admin/salir">Salir</a></div>
+    </nav>
+    <main class="trabajo" id="contenido">
+      {% block contenido %}{% endblock %}
+    </main>
+  </div>
+  {% endblock %}
+</body>
+</html>

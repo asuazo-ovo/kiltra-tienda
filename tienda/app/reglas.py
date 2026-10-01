@@ -1,18 +1,15 @@
-"""Las reglas de negocio que aplica la web de Kiltra el 29-sep: la versión «del antes», con sus errores sembrados.
+"""Las reglas que aplica la plataforma con la configuración que la tienda cargó en el panel.
 
-- A4: la fecha estimada se calcula desde la compra (3 hábiles RM / 5 regiones) y no considera que Nicolás
-  despacha lunes, miércoles y viernes ni el plazo real del courier.
-- B10: la web dice «a todo Chile», pero el checkout solo ofrece las comunas que conoce.
-- C5: BIENVENIDA10 vale en la primera compra; CAMI15 venció el 31 de agosto; la promo 2×$25.000 de Instagram no existe en la web.
+Recién creada la base, la configuración es la versión «web» del 29-sep (con sus errores sembrados):
+- A4: la fecha estimada son N días hábiles desde la compra, sin considerar los días de despacho ni el courier.
+- B10: la web dice «a todo Chile», pero el checkout solo ofrece las comunas configuradas.
+- C5: BIENVENIDA10 vale en la primera compra; CAMI15 venció el 31 de agosto.
+Lo que se corrija en el panel (Preparar del curso) cambia estas reglas sin tocar el código.
 """
 import datetime as dt
 
 from . import datos
 from .datos import caso
-
-F = caso.POLITICAS
-GRATIS_DESDE = F["despacho_gratis"]["web"]
-COMUNAS = sorted(caso.COMUNAS)
 
 try:
     from zoneinfo import ZoneInfo
@@ -29,22 +26,32 @@ def pesos(n):
     return "$" + f"{int(n):,}".replace(",", ".")
 
 
+def envios():
+    return datos.config("envios")
+
+
+def comunas():
+    return list(envios()["comunas"])
+
+
 def zona(comuna):
-    return caso.COMUNAS.get(comuna)
+    return envios()["comunas"].get(comuna)
 
 
 def costo_despacho(comuna, neto):
-    z = zona(comuna)
+    e = envios()
+    z = e["comunas"].get(comuna)
     if z is None:
         return None
-    return 0 if neto >= GRATIS_DESDE else F["costo_despacho"][z]
+    return 0 if neto >= e["gratis_desde"] else e["zonas"][z]["costo"]
 
 
 def fecha_estimada(comuna, desde=None):
-    z = zona(comuna)
+    e = envios()
+    z = e["comunas"].get(comuna)
     if z is None:
         return None
-    return caso.sumar_habiles((desde or ahora()).date(), F["plazo_prometido_dias"][z])
+    return caso.sumar_habiles((desde or ahora()).date(), e["zonas"][z]["dias_habiles"])
 
 
 def fecha_larga(d):
@@ -56,13 +63,15 @@ def validar_codigo(codigo, email, subtotal):
     c = (codigo or "").strip().upper()
     if not c:
         return 0, ""
-    if c == "BIENVENIDA10":
-        if email and datos.pedidos_de_email(email) > 0:
-            return 0, "BIENVENIDA10 es solo para tu primera compra, y este correo ya tiene pedidos."
-        return round(subtotal * 0.10), "BIENVENIDA10 aplicado: 10% de descuento."
-    if c == "CAMI15":
-        return 0, "El código CAMI15 venció el 31 de agosto."
-    return 0, f"El código {c} no existe. Revisa que esté bien escrito."
+    d = next((x for x in datos.config("descuentos") if x["codigo"].upper() == c), None)
+    if not d or not d.get("activo", True):
+        return 0, f"El código {c} no existe. Revisa que esté bien escrito."
+    if d.get("vence") and ahora().date() > dt.date.fromisoformat(d["vence"]):
+        v = dt.date.fromisoformat(d["vence"])
+        return 0, f"El código {c} venció el {v.day} de {caso.MESES[v.month - 1]}."
+    if d.get("solo_primera_compra") and email and datos.pedidos_de_email(email) > 0:
+        return 0, f"{c} es solo para tu primera compra, y este correo ya tiene pedidos."
+    return round(subtotal * d["porcentaje"] / 100), f"{c} aplicado: {d['porcentaje']}% de descuento."
 
 
 COLORES = {  # muestra de color para la ficha (presentación, no dato del negocio)

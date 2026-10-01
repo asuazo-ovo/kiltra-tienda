@@ -1,45 +1,82 @@
-"""Tienda web de Kiltra (ficticia): vitrina, carro, checkout simulado, seguimiento, panel y API.
+"""La tienda Kiltra sobre la plataforma ficticia Mostrador (como una tienda en Shopify o Jumpseller).
+
+Tres caras sobre la misma base:
+  /            la vitrina de Kiltra (lo que ve el cliente)
+  /admin       el panel de Mostrador (lo que ve la dueña): pedidos, productos, clientes, descuentos, envíos,
+               páginas y Configuración → API
+  /api/v1      la API de administrador de la plataforma (credenciales del panel)   ·   /mcp  su servidor MCP
 
 Correr en local:  python -m uvicorn app.main:app --port 8000   (desde la carpeta tienda/)
 """
 import base64
+import contextlib
 import datetime as dt
 import hashlib
 import hmac
 import json
 import os
+import time
 
-from fastapi import Depends, FastAPI, Form, Header, HTTPException, Query, Request
+from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import datos, reglas
+from . import api, datos, reglas
 from .datos import caso
+from .plataforma import DOMINIO, PLATAFORMA, PLATAFORMA_LEMA, TIENDA_CODIGO
 
 TIENDA = datos.TIENDA
 FOTOS = os.path.join(TIENDA, "static", "fotos")
 # En local hay claves de desarrollo. Publicada (Render define RENDER; Hugging Face, SPACE_ID), la tienda nunca
-# las usa: si falta una clave, el panel o la API quedan cerrados en vez de abrirse con una clave conocida.
+# las usa: si falta una clave, el panel queda cerrado en vez de abrirse con una clave conocida.
 PUBLICADA = bool(os.environ.get("RENDER") or os.environ.get("SPACE_ID") or os.environ.get("KILTRA_PUBLICADA"))
 _dev = lambda clave, valor: os.environ.get(clave) or (None if PUBLICADA else valor)
 SECRETO = (_dev("KILTRA_SECRETO", "secreto-local-de-desarrollo") or os.urandom(32).hex()).encode()
 CLAVE_ADMIN = _dev("KILTRA_ADMIN_CLAVE", "demo")
-API_KEY = _dev("KILTRA_API_KEY", "demo-local")
+USUARIO_ADMIN = "rocio@kiltra.example"
 WHATSAPP = os.environ.get("KILTRA_WHATSAPP", "")          # número del sandbox de Kapso, si se quiere enlazar
 
 datos.crear_base()
-app = FastAPI(title="Kiltra — API de la tienda (ficticia)", docs_url="/api/docs", redoc_url=None,
-              openapi_url="/api/openapi.json",
-              description="API de la tienda ficticia Kiltra, para el curso de agentes de WhatsApp de OVO. "
-                          "Requiere el encabezado X-API-Key.")
+api.credenciales()
+
+# ─────────────────────────── MCP de la plataforma ───────────────────────────
+try:
+    from mcp.server.transport_security import TransportSecuritySettings
+
+    from . import mcp_mostrador
+    _hosts = ["127.0.0.1:*", "localhost:*"] + ([os.environ["RENDER_EXTERNAL_HOSTNAME"]] if os.environ.get("RENDER_EXTERNAL_HOSTNAME") else [])
+    mcp_app = mcp_mostrador.mcp.streamable_http_app(
+        streamable_http_path="/", json_response=False, stateless_http=True,
+        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=True, allowed_hosts=_hosts,
+                                                     allowed_origins=[f"https://{h}" for h in _hosts] + [f"http://{h}" for h in _hosts]))
+except ImportError:            # sin el paquete mcp la tienda funciona igual, solo sin /mcp
+    mcp_mostrador = mcp_app = None
+
+
+@contextlib.asynccontextmanager
+async def ciclo(app):
+    if mcp_app:
+        async with mcp_mostrador.mcp.session_manager.run():
+            yield
+    else:
+        yield
+
+
+app = FastAPI(title=f"{PLATAFORMA} — API de administrador (tienda Kiltra)", docs_url="/api/docs", redoc_url=None,
+              openapi_url="/api/openapi.json", lifespan=ciclo,
+              description=f"API de administrador de {PLATAFORMA}, una plataforma de ecommerce **ficticia** para el curso de "
+                          "agentes de WhatsApp de OVO. Se entra con las credenciales del panel (Configuración → API): "
+                          "encabezados `X-Login-Key` y `X-Auth-Token`. Entrega datos completos y permite modificar la tienda.")
+app.include_router(api.router)
 app.mount("/static", StaticFiles(directory=os.path.join(TIENDA, "static")), name="static")
+if mcp_app:
+    app.mount("/mcp", mcp_app)
+
 plantillas = Jinja2Templates(directory=os.path.join(TIENDA, "app", "plantillas"))
 J = plantillas.env
 J.globals.update(pesos=reglas.pesos, muestra=reglas.muestra, fecha_larga=reglas.fecha_larga, categorias=datos.CATEGORIAS,
-                 slug=datos.SLUG, gratis_desde=reglas.GRATIS_DESDE, plazo_rm=caso.POLITICAS["plazo_prometido"]["RM"],
-                 whatsapp=WHATSAPP)
+                 slug=datos.SLUG, whatsapp=WHATSAPP, plataforma=PLATAFORMA, plataforma_lema=PLATAFORMA_LEMA, dominio=DOMINIO)
 J.filters["fecha"] = lambda s: dt.date.fromisoformat(s) if s else None
 
 
@@ -58,6 +95,9 @@ def foto(sku):
     return f"/static/fotos/{sku}.jpg" if os.path.exists(os.path.join(FOTOS, f"{sku}.jpg")) else None
 
 
+J.globals.update(foto=foto)
+
+
 def _preparar(p):
     """Ordena los colores para que el primero sea el de la foto."""
     if not p:
@@ -68,9 +108,6 @@ def _preparar(p):
     p["foto"] = foto(p["sku"])
     p["color_foto"] = fc
     return p
-
-
-J.globals.update(foto=foto)
 
 
 # ─────────────────────────── Carro (cookie) ───────────────────────────
@@ -103,7 +140,9 @@ def detalle_carro(carro):
 
 def contexto(request, **kw):
     carro = leer_carro(request)
-    return {"request": request, "n_carro": sum(c[3] for c in carro), **kw}
+    e = reglas.envios()
+    return {"request": request, "n_carro": sum(c[3] for c in carro), "gratis_desde": e["gratis_desde"],
+            "plazo_rm": e["zonas"]["RM"]["texto"], "tienda": datos.config("tienda"), **kw}
 
 
 def html(request, plantilla, status=200, **kw):
@@ -145,7 +184,7 @@ def ficha(request: Request, sku: str, color: str = "", comuna: str = "", agregad
         costo = reglas.costo_despacho(comuna, p["precio"])
         despacho = {"comuna": comuna, "costo": costo, "fecha": reglas.fecha_estimada(comuna)} if costo is not None else {"comuna": comuna}
     relacionados = [_preparar(x) for x in datos.productos(p["categoria"]) if x["sku"] != p["sku"]][:4]
-    return html(request, "producto.html", p=p, color=color, tallas=tallas, despacho=despacho, comunas=reglas.COMUNAS,
+    return html(request, "producto.html", p=p, color=color, tallas=tallas, despacho=despacho, comunas=reglas.comunas(),
                 agregado=agregado, relacionados=relacionados, guia=caso.GUIA_TALLAS["web"])
 
 
@@ -167,7 +206,7 @@ def carro_agregar(request: Request, sku: str = Form(...), color: str = Form(...)
 @app.get("/carro", response_class=HTMLResponse)
 def carro(request: Request):
     lineas, subtotal = detalle_carro(leer_carro(request))
-    return html(request, "carro.html", lineas=lineas, subtotal=subtotal, falta=max(0, reglas.GRATIS_DESDE - subtotal))
+    return html(request, "carro.html", lineas=lineas, subtotal=subtotal, falta=max(0, reglas.envios()["gratis_desde"] - subtotal))
 
 
 @app.post("/carro/actualizar")
@@ -197,7 +236,7 @@ def checkout(request: Request):
     if not lineas:
         return RedirectResponse("/carro", status_code=303)
     return html(request, "checkout.html", lineas=lineas, subtotal=subtotal, f={}, calc=_calcular(lineas, subtotal, "", "", ""),
-                comunas=reglas.COMUNAS, error=None)
+                comunas=reglas.comunas(), error=None)
 
 
 @app.post("/checkout", response_class=HTMLResponse)
@@ -237,12 +276,12 @@ def checkout_enviar(request: Request, nombre: str = Form(""), email: str = Form(
                 resp = RedirectResponse(f"/pedido/{numero}?t={_firma(numero)}", status_code=303)
                 escribir_carro(resp, [])
                 return resp
-    return html(request, "checkout.html", lineas=lineas, subtotal=subtotal, f=f, calc=calc, comunas=reglas.COMUNAS, error=error,
+    return html(request, "checkout.html", lineas=lineas, subtotal=subtotal, f=f, calc=calc, comunas=reglas.comunas(), error=error,
                 status=400 if error else 200)
 
 
-def _firma(numero):
-    return hmac.new(SECRETO, numero.encode(), hashlib.sha256).hexdigest()[:16]
+def _firma(texto):
+    return hmac.new(SECRETO, texto.encode(), hashlib.sha256).hexdigest()[:16]
 
 
 @app.get("/pedido/{numero}", response_class=HTMLResponse)
@@ -272,15 +311,17 @@ def seguimiento_buscar(request: Request, numero: str = Form(""), email: str = Fo
 
 
 def _faq():
-    import documentos
+    """Arma las preguntas desde el texto que la tienda cargó en el panel (Páginas)."""
+    texto = datos.config("paginas")["preguntas-frecuentes"]["texto"]
     bloques, actual = [], None
-    for linea in documentos.preguntas_frecuentes().strip().splitlines()[3:]:
-        if linea.startswith("¿") and linea.endswith("?") and linea.upper() == linea:
-            s = linea.lower()
+    for linea in texto.splitlines():
+        l = linea.strip()
+        if l.startswith("¿") and l.endswith("?"):
+            s = l.lower() if l.upper() == l else l
             actual = {"pregunta": s[0] + s[1].upper() + s[2:], "respuesta": []}
             bloques.append(actual)
-        elif actual is not None and linea.strip():
-            l, r = linea.strip(), actual["respuesta"]
+        elif actual is not None and l:
+            r = actual["respuesta"]
             # el texto viene cortado a lo ancho: una línea que sigue la oración anterior se une a ella
             if r and r[-1][-1] not in ".!?:" and l[0].islower():
                 r[-1] += " " + l
@@ -299,121 +340,204 @@ def guia(request: Request):
     return html(request, "tallas.html", guia=caso.GUIA_TALLAS["web"])
 
 
-# ─────────────────────────── Panel de la tienda ───────────────────────────
-basica = HTTPBasic(realm="Panel de Kiltra")
+# ─────────────────────────── Panel de Mostrador ───────────────────────────
+SESION = "mostrador_sesion"
 
 
-def admin(cred: HTTPBasicCredentials = Depends(basica)):
-    if not CLAVE_ADMIN:
-        raise HTTPException(503, "El panel está cerrado: falta configurar KILTRA_ADMIN_CLAVE.")
-    if not (hmac.compare_digest(cred.username, "kiltra") and hmac.compare_digest(cred.password, CLAVE_ADMIN)):
-        raise HTTPException(401, headers={"WWW-Authenticate": 'Basic realm="Panel de Kiltra"'})
-    return cred.username
+def _sesion_valida(request):
+    v = request.cookies.get(SESION, "")
+    try:
+        venc, firma = v.split(".")
+        return int(venc) > time.time() and hmac.compare_digest(firma, _firma("panel" + venc))
+    except ValueError:
+        return False
+
+
+class NoAutorizado(Exception):
+    pass
+
+
+@app.exception_handler(NoAutorizado)
+def _a_entrar(request, exc):
+    return RedirectResponse(f"/admin/entrar?volver={request.url.path}", status_code=303)
+
+
+def panel(request):
+    if not _sesion_valida(request):
+        raise NoAutorizado()
+
+
+def phtml(request, plantilla, seccion, status=200, **kw):
+    return plantillas.TemplateResponse(request, plantilla, {"request": request, "seccion": seccion,
+                                                           "tienda": datos.config("tienda"), **kw}, status_code=status)
+
+
+@app.get("/admin/entrar", response_class=HTMLResponse)
+def entrar(request: Request, volver: str = "/admin"):
+    return phtml(request, "panel_entrar.html", None, error=None, volver=volver, cerrado=not CLAVE_ADMIN)
+
+
+@app.post("/admin/entrar", response_class=HTMLResponse)
+def entrar_enviar(request: Request, correo: str = Form(""), clave: str = Form(""), volver: str = Form("/admin")):
+    if CLAVE_ADMIN and correo.strip().lower() == USUARIO_ADMIN and hmac.compare_digest(clave, CLAVE_ADMIN):
+        venc = str(int(time.time()) + 8 * 3600)
+        resp = RedirectResponse(volver if volver.startswith("/admin") else "/admin", status_code=303)
+        resp.set_cookie(SESION, f"{venc}.{_firma('panel' + venc)}", max_age=8 * 3600, httponly=True, samesite="lax")
+        return resp
+    return phtml(request, "panel_entrar.html", None, status=401, volver=volver, cerrado=not CLAVE_ADMIN,
+                 error="El correo o la contraseña no coinciden.")
+
+
+@app.get("/admin/salir")
+def salir():
+    resp = RedirectResponse("/admin/entrar", status_code=303)
+    resp.delete_cookie(SESION)
+    return resp
 
 
 @app.get("/admin", response_class=HTMLResponse)
-def admin_pedidos(request: Request, estado: str = "", q: str = "", _=Depends(admin)):
-    return html(request, "admin_pedidos.html", pedidos=datos.pedidos(estado or None, q or None), estados=datos.estados_pedidos(),
-                estado=estado, q=q)
+def p_inicio(request: Request):
+    panel(request)
+    return phtml(request, "panel_inicio.html", "inicio", r=datos.resumen(), ultimos=datos.pedidos(limite=8),
+                 estados=datos.estados_pedidos())
+
+
+@app.get("/admin/pedidos", response_class=HTMLResponse)
+def p_pedidos(request: Request, estado: str = "", q: str = ""):
+    panel(request)
+    return phtml(request, "panel_pedidos.html", "pedidos", pedidos=datos.pedidos(estado or None, q or None),
+                 estados=datos.estados_pedidos(), estado=estado, q=q)
 
 
 @app.get("/admin/pedidos/{numero}", response_class=HTMLResponse)
-def admin_pedido(request: Request, numero: str, _=Depends(admin)):
+def p_pedido(request: Request, numero: str):
+    panel(request)
     p = datos.pedido(numero)
     if not p:
         raise HTTPException(404)
-    return html(request, "admin_pedido.html", p=p, estados=ETAPAS + ["pago pendiente", "preventa", "en cambio", "cancelado",
-                                                                   "reembolsado", "pago rechazado"])
+    return phtml(request, "panel_pedido.html", "pedidos", p=p, estados=api.ESTADOS)
 
 
 @app.post("/admin/pedidos/{numero}")
-def admin_pedido_estado(numero: str, estado: str = Form(...), _=Depends(admin)):
-    datos.cambiar_estado(numero, estado)
-    return RedirectResponse(f"/admin/pedidos/{numero}", status_code=303)
+def p_pedido_estado(request: Request, numero: str, estado: str = Form(...)):
+    panel(request)
+    if estado in api.ESTADOS:
+        datos.cambiar_estado(numero, estado)
+    return RedirectResponse(f"/admin/pedidos/{numero}?guardado=1", status_code=303)
 
 
-@app.get("/admin/stock", response_class=HTMLResponse)
-def admin_stock(request: Request, _=Depends(admin)):
-    with datos.conexion() as con:
-        filas = [dict(f) for f in con.execute("SELECT v.*, p.nombre FROM variantes v JOIN productos p ON p.sku=v.sku ORDER BY v.orden")]
-    return html(request, "admin_stock.html", filas=filas, guardado=request.query_params.get("guardado"))
+@app.get("/admin/productos", response_class=HTMLResponse)
+def p_productos(request: Request, q: str = ""):
+    panel(request)
+    ps = datos.buscar(texto=q) if q.strip() else datos.productos()
+    return phtml(request, "panel_productos.html", "productos", productos=ps, q=q, guardado=request.query_params.get("guardado"))
 
 
-@app.post("/admin/stock")
-async def admin_stock_guardar(request: Request, _=Depends(admin)):
+@app.post("/admin/productos")
+async def p_productos_guardar(request: Request):
+    panel(request)
     form = await request.form()
     cambios = {}
     for k, v in form.items():
-        if k.startswith("s|") and str(v).strip().lstrip("-").isdigit():
+        if k.startswith("s|") and str(v).strip().isdigit():
             _, sku, color, talla = k.split("|")
             cambios[(sku, color, talla)] = int(v)
     datos.guardar_stock(cambios)
-    return RedirectResponse("/admin/stock?guardado=1", status_code=303)
+    return RedirectResponse("/admin/productos?guardado=1", status_code=303)
+
+
+@app.get("/admin/clientes", response_class=HTMLResponse)
+def p_clientes(request: Request, q: str = ""):
+    panel(request)
+    return phtml(request, "panel_clientes.html", "clientes", clientes=datos.clientes(q or None), q=q)
+
+
+@app.get("/admin/descuentos", response_class=HTMLResponse)
+def p_descuentos(request: Request):
+    panel(request)
+    return phtml(request, "panel_descuentos.html", "descuentos", descuentos=datos.config("descuentos"),
+                 hoy=reglas.ahora().date().isoformat(), guardado=request.query_params.get("guardado"))
+
+
+@app.post("/admin/descuentos")
+async def p_descuentos_guardar(request: Request):
+    panel(request)
+    form = await request.form()
+    nuevos = []
+    for i in range(int(form.get("n", 0)) + 1):
+        codigo = str(form.get(f"codigo_{i}", "")).strip().upper()
+        if not codigo or form.get(f"borrar_{i}"):
+            continue
+        try:
+            pct = max(1, min(90, int(form.get(f"porcentaje_{i}", 10))))
+        except ValueError:
+            pct = 10
+        nuevos.append({"codigo": codigo, "porcentaje": pct, "solo_primera_compra": bool(form.get(f"primera_{i}")),
+                       "vence": str(form.get(f"vence_{i}", "")).strip() or None, "activo": bool(form.get(f"activo_{i}"))})
+    datos.guardar_config("descuentos", nuevos)
+    return RedirectResponse("/admin/descuentos?guardado=1", status_code=303)
+
+
+@app.get("/admin/envios", response_class=HTMLResponse)
+def p_envios(request: Request):
+    panel(request)
+    return phtml(request, "panel_envios.html", "envios", e=reglas.envios(), guardado=request.query_params.get("guardado"))
+
+
+@app.post("/admin/envios")
+async def p_envios_guardar(request: Request):
+    panel(request)
+    form = await request.form()
+    e = reglas.envios()
+    num = lambda k, d: int(str(form.get(k, d)).replace(".", "").strip() or d)
+    e["gratis_desde"] = num("gratis_desde", e["gratis_desde"])
+    for z in e["zonas"]:
+        e["zonas"][z] = {"costo": num(f"costo_{z}", e["zonas"][z]["costo"]),
+                         "dias_habiles": num(f"dias_{z}", e["zonas"][z]["dias_habiles"]),
+                         "texto": str(form.get(f"texto_{z}", e["zonas"][z]["texto"])).strip()}
+    datos.guardar_config("envios", e)
+    return RedirectResponse("/admin/envios?guardado=1", status_code=303)
+
+
+@app.get("/admin/paginas", response_class=HTMLResponse)
+def p_paginas(request: Request):
+    panel(request)
+    return phtml(request, "panel_paginas.html", "paginas", paginas=datos.config("paginas"), guardado=request.query_params.get("guardado"))
+
+
+@app.post("/admin/paginas")
+def p_paginas_guardar(request: Request, texto: str = Form("")):
+    panel(request)
+    pags = datos.config("paginas")
+    pags["preguntas-frecuentes"]["texto"] = texto.replace("\r\n", "\n").strip()
+    datos.guardar_config("paginas", pags)
+    return RedirectResponse("/admin/paginas?guardado=1", status_code=303)
+
+
+@app.get("/admin/api", response_class=HTMLResponse)
+def p_api(request: Request):
+    panel(request)
+    login, token = api.credenciales()
+    base = str(request.base_url).rstrip("/")
+    return phtml(request, "panel_api.html", "api", login=login, token=token, base=base, mcp=bool(mcp_app),
+                 regenerado=request.query_params.get("regenerado"))
+
+
+@app.post("/admin/api/regenerar")
+def p_api_regenerar(request: Request):
+    panel(request)
+    api.regenerar_token()
+    return RedirectResponse("/admin/api?regenerado=1", status_code=303)
 
 
 @app.get("/admin/exportar/{que}.csv")
-def admin_exportar(que: str, _=Depends(admin)):
+def p_exportar(request: Request, que: str):
+    panel(request)
     if que not in ("productos", "pedidos"):
         raise HTTPException(404)
     texto = datos.exportar_productos() if que == "productos" else datos.exportar_pedidos()
     return Response(texto.encode("utf-8"), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="export-{que}-web.csv"'})
-
-
-# ─────────────────────────── API ───────────────────────────
-def con_llave(x_api_key: str = Header("", alias="X-API-Key")):
-    if not API_KEY:
-        raise HTTPException(503, "La API está cerrada: falta configurar KILTRA_API_KEY.")
-    if not hmac.compare_digest(x_api_key, API_KEY):
-        raise HTTPException(401, "Falta el encabezado X-API-Key o no es válido.")
-
-
-def _producto_api(p, base):
-    vs = p.get("coinciden", p["variantes"])
-    por_color = {}
-    for v in vs:
-        if v["stock"] > 0:
-            por_color.setdefault(v["color"], []).append(v["talla"] if v["stock"] > 2 else f"{v['talla']} (quedan {v['stock']})")
-    return {"sku": p["sku"], "nombre": p["nombre"], "categoria": p["categoria"], "precio": p["precio"],
-            "disponible": bool(por_color), "tallas_con_stock_por_color": por_color,
-            "agotado_en": [f"{v['color']} {v['talla']}" for v in vs if v["stock"] == 0],
-            "preventa": p["preventa"], "url": f"{base}p/{p['sku']}",
-            "imagen_url": f"{base}static/fotos/{p['sku']}.jpg" if foto(p["sku"]) else None}
-
-
-@app.get("/api/v1/productos", tags=["catálogo"], dependencies=[Depends(con_llave)])
-def api_productos(request: Request, texto: str = "", categoria: str = "", talla: str = "", color: str = "",
-                  precio_max: int | None = None, sku: str = ""):
-    """Busca prendas por texto, categoría, talla, color, precio máximo o SKU. Devuelve hasta 6."""
-    res = datos.buscar(texto, categoria, talla, color, precio_max, sku)
-    base = str(request.base_url)
-    return {"total": len(res), "resultados": [_producto_api(p, base) for p in res[:6]],
-            "nota": "Hay más resultados: pide más detalle al cliente." if len(res) > 6 else None}
-
-
-@app.get("/api/v1/productos/{sku}", tags=["catálogo"], dependencies=[Depends(con_llave)])
-def api_producto(request: Request, sku: str):
-    p = datos.producto(sku)
-    if not p:
-        raise HTTPException(404, "No existe ese SKU.")
-    return _producto_api(p, str(request.base_url))
-
-
-@app.get("/api/v1/pedidos/{numero}", tags=["pedidos"], dependencies=[Depends(con_llave)])
-def api_pedido(numero: str, telefono: str = Query(..., description="Teléfono desde el que escribe el cliente")):
-    """Estado de un pedido. Solo responde si el teléfono coincide con el del pedido (los últimos 8 dígitos)."""
-    p = datos.pedido(numero)
-    if not p:
-        return {"encontrado": False, "mensaje": "No existe un pedido con ese número."}
-    dig = lambda s: "".join(ch for ch in s if ch.isdigit())[-8:]
-    if not dig(telefono) or dig(telefono) != dig(p["telefono"]):
-        return {"encontrado": True, "verificado": False,
-                "mensaje": "El teléfono no coincide con el del pedido. No entregues ningún dato del pedido."}
-    return {"encontrado": True, "verificado": True, "pedido": {
-        k: p[k] for k in ("numero", "fecha", "estado", "comuna", "total", "medio_pago", "courier", "seguimiento",
-                          "fecha_despacho", "fecha_estimada", "fecha_entrega")} | {
-        "cliente": p["cliente"].split()[0],
-        "items": [{k: i[k] for k in ("producto", "color", "talla", "cantidad")} for i in p["items"]]}}
 
 
 @app.get("/salud", include_in_schema=False)
@@ -426,3 +550,28 @@ def no_encontrado(request: Request, exc):
     if request.url.path.startswith("/api/"):
         return JSONResponse({"detail": getattr(exc, "detail", "No encontrado")}, status_code=404)
     return html(request, "404.html", status=404)
+
+
+# ─────────────────────────── /mcp: credenciales y ruta sin barra final ───────────────────────────
+class _PuertaMcp:
+    """El MCP pide las mismas credenciales que la API, y `/mcp` equivale a `/mcp/`."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope.get("path", "").rstrip("/") == "/mcp":
+            if scope["path"] == "/mcp":
+                scope = dict(scope, path="/mcp/", raw_path=b"/mcp/")
+            h = {k.decode().lower(): v.decode() for k, v in scope.get("headers", [])}
+            login, token = api.credenciales()
+            if not (hmac.compare_digest(h.get("x-login-key", ""), login) and hmac.compare_digest(h.get("x-auth-token", ""), token)):
+                cuerpo = json.dumps({"detail": "Credenciales inválidas. Cópialas desde el panel: Configuración → API."}).encode()
+                await send({"type": "http.response.start", "status": 401, "headers": [(b"content-type", b"application/json")]})
+                await send({"type": "http.response.body", "body": cuerpo})
+                return
+            mcp_mostrador.BASE["url"] = f"{h.get('x-forwarded-proto', scope.get('scheme', 'http'))}://{h.get('host', '')}"
+        await self.app(scope, receive, send)
+
+
+app = _PuertaMcp(app)  # type: ignore[assignment]

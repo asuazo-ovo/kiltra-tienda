@@ -1,0 +1,17 @@
+{% extends "panel_base.html" %}
+{% block titulo %}Entrar{% endblock %}
+{% block cuerpo %}
+<main class="entrar">
+  <form class="form" method="post" action="/admin/entrar">
+    <a class="logo" href="/admin">{% include "_logo_mostrador.html" %}{{ plataforma|lower }}</a>
+    <h1 style="margin-bottom:6px">Entra a tu tienda</h1>
+    <p class="bajada" style="margin-bottom:18px">Panel de {{ tienda.nombre }}.</p>
+    {% if cerrado %}<p class="aviso"><strong>El panel está cerrado.</strong>Falta configurar la contraseña del panel en el servidor (KILTRA_ADMIN_CLAVE).</p>{% endif %}
+    {% if error %}<p class="aviso" role="alert"><strong>No pudimos entrar.</strong>{{ error }}</p>{% endif %}
+    <input type="hidden" name="volver" value="{{ volver }}">
+    <div class="campo"><label for="correo">Correo</label><input id="correo" name="correo" type="email" autocomplete="username" value="rocio@kiltra.example"></div>
+    <div class="campo"><label for="clave">Contraseña</label><input id="clave" name="clave" type="password" autocomplete="current-password" autofocus></div>
+    <button class="boton" type="submit" style="width:100%;justify-content:center">Entrar</button>
+  </form>
+</main>
+{% endblock %}

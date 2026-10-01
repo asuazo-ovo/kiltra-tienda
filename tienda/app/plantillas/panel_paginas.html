@@ -1,0 +1,13 @@
+{% extends "panel_base.html" %}
+{% block titulo %}Páginas{% endblock %}
+{% block contenido %}
+<div class="cabeza"><div><h1>Páginas</h1>
+  <p class="bajada">El texto de tus preguntas frecuentes. Cada pregunta va en su propia línea, entre signos de interrogación; la respuesta, debajo.</p></div>
+  <a class="boton boton-sec" href="/preguntas-frecuentes" target="_blank" rel="noopener">Ver en la tienda</a></div>
+{% if guardado %}<p class="guardado" role="status">Página guardada. Ya se ve en tu tienda.</p>{% endif %}
+<form class="form" method="post" style="max-width:900px">
+  <div class="campo"><label for="texto">{{ paginas["preguntas-frecuentes"].titulo }}</label>
+    <textarea id="texto" name="texto" spellcheck="true">{{ paginas["preguntas-frecuentes"].texto }}</textarea></div>
+  <button class="boton" type="submit">Guardar página</button>
+</form>
+{% endblock %}

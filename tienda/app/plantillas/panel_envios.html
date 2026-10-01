@@ -1,0 +1,23 @@
+{% extends "panel_base.html" %}
+{% block titulo %}Envíos{% endblock %}
+{% block contenido %}
+<div class="cabeza"><div><h1>Envíos</h1>
+  <p class="bajada">Tu tienda calcula el costo y la fecha estimada con estos valores. La fecha estimada cuenta días hábiles <strong>desde la compra</strong>.</p></div></div>
+{% if guardado %}<p class="guardado" role="status">Envíos guardados. La tienda ya usa los valores nuevos.</p>{% endif %}
+<form class="form" method="post">
+  <div class="campo"><label for="gratis_desde">Despacho gratis desde ($)</label>
+    <input id="gratis_desde" name="gratis_desde" inputmode="numeric" value="{{ e.gratis_desde }}"></div>
+  <p class="ayuda" style="margin:-6px 0 18px">Courier: {{ e.courier }}.</p>
+  {% for z, v in e.zonas.items() %}
+  <h2>{{ {"RM": "Región Metropolitana", "Regiones": "Regiones", "Extremo": "Zonas extremas"}[z] }}</h2>
+  <div class="fila">
+    <div class="campo"><label for="costo_{{ z }}">Costo ($)</label><input id="costo_{{ z }}" name="costo_{{ z }}" inputmode="numeric" value="{{ v.costo }}"></div>
+    <div class="campo"><label for="dias_{{ z }}">Días hábiles para la fecha estimada</label><input id="dias_{{ z }}" name="dias_{{ z }}" inputmode="numeric" value="{{ v.dias_habiles }}"></div>
+    <div class="campo"><label for="texto_{{ z }}">Texto que ve el cliente</label><input id="texto_{{ z }}" name="texto_{{ z }}" value="{{ v.texto }}"></div>
+  </div>
+  {% endfor %}
+  <h2>Comunas con despacho</h2>
+  <p class="ayuda">{{ e.comunas|length }} comunas: {{ e.comunas.keys()|join(", ") }}. Una comuna que no está aquí no se puede elegir al pagar.</p>
+  <p style="margin-top:18px"><button class="boton" type="submit">Guardar envíos</button></p>
+</form>
+{% endblock %}

@@ -306,3 +306,6 @@ select { max-width: 100%; min-width: 0; }
   .aviso-curso, .barra-despacho { font-size: 12px; }
   .buscador input { width: 120px; }
 }
+
+/* Sello de la plataforma (como «Powered by Shopify»): discreto, en el pie */
+.sello { display: block; margin-bottom: 6px; color: #fff; font-weight: 600; }

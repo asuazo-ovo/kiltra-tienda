@@ -1,0 +1,29 @@
+{% extends "panel_base.html" %}
+{% block titulo %}Productos y stock{% endblock %}
+{% block contenido %}
+<div class="cabeza">
+  <div><h1>Productos y stock</h1>
+    <p class="bajada">El stock que ve el cliente en tu tienda. {{ plataforma }} no sabe lo que vendes por otros canales (feria, Instagram, WhatsApp): eso lo descuentas tú.</p></div>
+  <a class="boton boton-sec" href="/admin/exportar/productos.csv">Exportar productos (CSV)</a>
+</div>
+{% if guardado %}<p class="guardado" role="status">Stock guardado.</p>{% endif %}
+<div class="filtros"><form class="buscar" method="get"><label class="sr" for="q">Buscar productos</label>
+  <input id="q" name="q" value="{{ q }}" placeholder="Buscar producto"></form></div>
+<form method="post">
+  <div class="hoja">
+  <table>
+    <tr><th>Producto</th><th>Color</th><th>Talla</th><th>Estado</th><th class="num">Stock</th></tr>
+    {% for p in productos %}{% for v in p.variantes %}
+    <tr>
+      <td>{% if loop.first %}<strong>{{ p.nombre }}</strong><br><small>{{ p.sku }} · {{ pesos(p.precio) }}</small>{% endif %}</td>
+      <td>{{ v.color }}</td><td>{{ v.talla }}</td>
+      <td><small>{{ v.estado }}</small></td>
+      <td class="num"><label class="sr" for="s{{ p.sku }}{{ loop.index }}">Stock {{ p.nombre }} {{ v.color }} {{ v.talla }}</label>
+        <input id="s{{ p.sku }}{{ loop.index }}" type="number" min="0" name="s|{{ p.sku }}|{{ v.color }}|{{ v.talla }}" value="{{ v.stock }}"></td>
+    </tr>
+    {% endfor %}{% endfor %}
+  </table>
+  </div>
+  <p><button class="boton" type="submit">Guardar stock</button></p>
+</form>
+{% endblock %}

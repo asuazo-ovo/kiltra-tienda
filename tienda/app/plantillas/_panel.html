@@ -1,0 +1,25 @@
+{% macro estado(e) -%}
+{%- set clase = {"pago pendiente": "e-pendiente", "preventa": "e-pendiente", "pagado": "e-curso", "en preparación": "e-curso",
+                 "despachado": "e-curso", "en cambio": "e-curso", "entregado": "e-listo", "cancelado": "e-problema",
+                 "reembolsado": "e-problema", "pago rechazado": "e-problema"} -%}
+<span class="estado {{ clase.get(e, '') }}">{{ e }}</span>
+{%- endmacro %}
+
+{% macro tabla_pedidos(pedidos) %}
+<div class="hoja">
+<table>
+  <tr><th>Pedido</th><th>Fecha</th><th>Cliente</th><th>Productos</th><th class="num">Total</th><th>Estado</th><th>Llegada estimada</th></tr>
+  {% for p in pedidos %}
+  <tr>
+    <td><a href="/admin/pedidos/{{ p.numero }}">{{ p.numero }}</a></td>
+    <td>{{ p.fecha }}<br><small>{{ p.hora }}</small></td>
+    <td>{{ p.cliente }}<br><small>{{ p.comuna }}</small></td>
+    <td>{% for i in p["items"] %}{{ i.cantidad }} × {{ i.producto }} <small>{{ i.color }}, {{ i.talla }}</small><br>{% endfor %}</td>
+    <td class="num">{{ pesos(p.total) }}<br><small>{{ p.medio_pago }}</small></td>
+    <td>{{ estado(p.estado) }}{% if p.nota_interna %}<br><small>{{ p.nota_interna }}</small>{% endif %}</td>
+    <td>{{ p.fecha_estimada or "—" }}</td>
+  </tr>
+  {% endfor %}
+</table>
+</div>
+{% endmacro %}

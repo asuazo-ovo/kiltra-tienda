@@ -1,0 +1,16 @@
+{% extends "panel_base.html" %}
+{% block titulo %}Clientes{% endblock %}
+{% block contenido %}
+<div class="cabeza"><div><h1>Clientes</h1><p class="bajada">{{ clientes|length }} clientes con compras en tu tienda.</p></div></div>
+<div class="filtros"><form class="buscar" method="get"><label class="sr" for="q">Buscar clientes</label>
+  <input id="q" name="q" value="{{ q }}" placeholder="Nombre, correo o teléfono"></form></div>
+<div class="hoja">
+<table>
+  <tr><th>Cliente</th><th>Contacto</th><th>Comuna</th><th class="num">Pedidos</th><th class="num">Total comprado</th><th>Última compra</th></tr>
+  {% for c in clientes %}
+  <tr><td>{{ c.nombre }}</td><td>{{ c.email }}<br><small>{{ c.telefono }}</small></td><td>{{ c.comuna }}</td>
+    <td class="num"><a href="/admin/pedidos?q={{ c.email|urlencode }}">{{ c.pedidos }}</a></td><td class="num">{{ pesos(c.total) }}</td><td>{{ c.ultima }}</td></tr>
+  {% endfor %}
+</table>
+</div>
+{% endblock %}

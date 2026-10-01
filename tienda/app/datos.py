@@ -4,6 +4,7 @@ Nada se carga a mano: catálogo, stock de la web, pedidos y clientes salen del m
 curso, así que el panel exporta exactamente lo que dicen `insumos/export-*.csv` mientras nadie compre.
 """
 import datetime as dt
+import json
 import os
 import sqlite3
 import sys
@@ -29,7 +30,30 @@ CREATE TABLE pedidos (numero TEXT PRIMARY KEY, fecha TEXT, hora TEXT, cliente TE
 CREATE TABLE items (numero TEXT, linea INTEGER, sku TEXT, producto TEXT, color TEXT, talla TEXT, cantidad INTEGER,
                     precio_unitario INTEGER, PRIMARY KEY (numero, linea));
 CREATE TABLE meta (clave TEXT PRIMARY KEY, valor TEXT);
+CREATE TABLE config (clave TEXT PRIMARY KEY, valor TEXT);
 """
+
+
+def config_inicial():
+    """La configuración de la tienda en la plataforma el 29-sep: la versión «web» de las políticas del caso."""
+    import documentos
+    F = caso.POLITICAS
+    texto_plazo = {"RM": F["plazo_prometido"]["RM"], "Regiones": F["plazo_prometido"]["Regiones"],
+                   "Extremo": F["plazo_prometido"]["Regiones"]}
+    return {
+        "tienda": {"nombre": "Kiltra", "lema": "ropa sin pedigrí, con mucha calle", "email": "hola@kiltra.example",
+                   "instagram": "@kiltra.cl", "horario": F["horario"]["web"], "showroom": F["showroom"]["web"]},
+        "envios": {"courier": caso.COURIER, "gratis_desde": F["despacho_gratis"]["web"],
+                   "zonas": {z: {"costo": F["costo_despacho"][z], "dias_habiles": F["plazo_prometido_dias"][z],
+                                 "texto": texto_plazo[z]} for z in ("RM", "Regiones", "Extremo")},
+                   "comunas": dict(sorted(caso.COMUNAS.items()))},
+        "descuentos": [
+            {"codigo": "BIENVENIDA10", "porcentaje": 10, "solo_primera_compra": True, "vence": None, "activo": True},
+            {"codigo": "CAMI15", "porcentaje": 15, "solo_primera_compra": False, "vence": "2026-08-31", "activo": True},
+        ],
+        "paginas": {"preguntas-frecuentes": {"titulo": "Preguntas frecuentes",
+                                             "texto": documentos.preguntas_frecuentes().strip()}},
+    }
 
 
 def _conectar():
@@ -75,7 +99,68 @@ def crear_base(forzar=False):
                             (p["numero"], j, it["sku"], it["producto"], it["color"], it["talla"], it["cantidad"],
                              it["precio_unitario"]))
         con.execute("INSERT INTO meta VALUES ('creada', ?)", (dt.datetime.now().isoformat(timespec="seconds"),))
+        for clave, valor in config_inicial().items():
+            con.execute("INSERT INTO config VALUES (?, ?)", (clave, json.dumps(valor, ensure_ascii=False)))
     return True
+
+
+# ─────────────────────────── Configuración de la tienda (editable en el panel) ───────────────────────────
+def config(clave):
+    with conexion() as con:
+        f = con.execute("SELECT valor FROM config WHERE clave=?", (clave,)).fetchone()
+        return json.loads(f["valor"]) if f else None
+
+
+def guardar_config(clave, valor):
+    with conexion() as con:
+        con.execute("INSERT OR REPLACE INTO config VALUES (?, ?)", (clave, json.dumps(valor, ensure_ascii=False)))
+
+
+def meta(clave, valor=None):
+    with conexion() as con:
+        if valor is not None:
+            con.execute("INSERT OR REPLACE INTO meta VALUES (?, ?)", (clave, valor))
+            return valor
+        f = con.execute("SELECT valor FROM meta WHERE clave=?", (clave,)).fetchone()
+        return f["valor"] if f else None
+
+
+def verificar_siembra():
+    """Chequeos de que la configuración recién sembrada calza con los insumos del caso."""
+    import documentos
+    F = caso.POLITICAS
+    env, pag = config("envios"), config("paginas")
+    return [
+        ("Las preguntas frecuentes de la plataforma son el texto de insumos/preguntas-frecuentes-web.txt",
+         pag["preguntas-frecuentes"]["texto"] == documentos.preguntas_frecuentes().strip()),
+        ("Despacho gratis desde el umbral de la web", env["gratis_desde"] == F["despacho_gratis"]["web"]),
+        ("Costos de despacho por zona", all(env["zonas"][z]["costo"] == F["costo_despacho"][z] for z in env["zonas"])),
+        ("Plazo prometido por zona", all(env["zonas"][z]["dias_habiles"] == F["plazo_prometido_dias"][z] for z in env["zonas"])),
+        ("Las comunas del checkout son las del caso", env["comunas"] == caso.COMUNAS),
+    ]
+
+
+# ─────────────────────────── Clientes (la plataforma los arma desde los pedidos) ───────────────────────────
+def clientes(texto=None, limite=500):
+    q = ("SELECT lower(email) email, MAX(cliente) nombre, MAX(telefono) telefono, MAX(comuna) comuna, COUNT(*) pedidos, "
+         "SUM(CASE WHEN estado NOT IN ('cancelado','pago rechazado','reembolsado') THEN total ELSE 0 END) total, "
+         "MAX(fecha) ultima FROM pedidos")
+    args = []
+    if texto:
+        q += " WHERE cliente LIKE ? OR email LIKE ? OR telefono LIKE ?"
+        args = [f"%{texto}%"] * 3
+    q += " GROUP BY lower(email) ORDER BY ultima DESC LIMIT ?"
+    with conexion() as con:
+        return [dict(f) for f in con.execute(q, args + [limite])]
+
+
+def resumen():
+    with conexion() as con:
+        f = con.execute("SELECT COUNT(*) n, SUM(total) t FROM pedidos WHERE estado NOT IN ('cancelado','pago rechazado','reembolsado')").fetchone()
+        pend = con.execute("SELECT COUNT(*) FROM pedidos WHERE estado IN ('pagado','en preparación','pago pendiente')").fetchone()[0]
+        sin = con.execute("SELECT COUNT(*) FROM variantes WHERE stock=0 AND estado='publicado'").fetchone()[0]
+        bajo = con.execute("SELECT COUNT(*) FROM variantes WHERE stock BETWEEN 1 AND 2 AND estado='publicado'").fetchone()[0]
+        return {"pedidos": f["n"], "ventas": f["t"] or 0, "por_despachar": pend, "variantes_agotadas": sin, "variantes_bajo": bajo}
 
 
 # ─────────────────────────── Catálogo ───────────────────────────

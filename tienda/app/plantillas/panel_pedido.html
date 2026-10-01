@@ -1,0 +1,27 @@
+{% extends "panel_base.html" %}
+{% from "_panel.html" import estado %}
+{% block titulo %}Pedido {{ p.numero }}{% endblock %}
+{% block contenido %}
+<p><a href="/admin/pedidos">Pedidos</a></p>
+<div class="cabeza"><h1>Pedido {{ p.numero }} {{ estado(p.estado) }}</h1></div>
+{% if request.query_params.get("guardado") %}<p class="guardado" role="status">Estado guardado.</p>{% endif %}
+<div class="dos">
+  <div class="hoja">
+    <table>
+      <tr><th>Cliente</th><td>{{ p.cliente }}<br><small>{{ p.email }} · {{ p.telefono }}</small></td></tr>
+      <tr><th>Despacho</th><td>{{ p.direccion or "Dirección no registrada" }}, {{ p.comuna }} <small>({{ p.zona }})</small></td></tr>
+      <tr><th>Compra</th><td>{{ p.fecha }} a las {{ p.hora }} · {{ p.medio_pago }}</td></tr>
+      {% for i in p["items"] %}<tr><th>{{ i.sku }}</th><td>{{ i.cantidad }} × {{ i.producto }}, {{ i.color }}, talla {{ i.talla }} · {{ pesos(i.precio_unitario) }}</td></tr>{% endfor %}
+      <tr><th>Totales</th><td>Subtotal {{ pesos(p.subtotal) }}{% if p.descuento %} · descuento {{ p.codigo }} −{{ pesos(p.descuento) }}{% endif %} · despacho {{ pesos(p.despacho) }} · <strong>total {{ pesos(p.total) }}</strong></td></tr>
+      <tr><th>Courier</th><td>{{ p.courier or "—" }} {{ p.seguimiento }}</td></tr>
+      <tr><th>Fechas</th><td>Despacho {{ p.fecha_despacho or "—" }} · llegada estimada {{ p.fecha_estimada or "—" }} · entrega {{ p.fecha_entrega or "—" }}</td></tr>
+      <tr><th>Nota interna</th><td>{{ p.nota_interna or "—" }}</td></tr>
+    </table>
+  </div>
+  <form class="form" method="post">
+    <div class="campo"><label for="estado">Cambiar estado</label>
+      <select id="estado" name="estado">{% for e in estados %}<option {% if e == p.estado %}selected{% endif %}>{{ e }}</option>{% endfor %}</select></div>
+    <button class="boton" type="submit">Guardar estado</button>
+  </form>
+</div>
+{% endblock %}

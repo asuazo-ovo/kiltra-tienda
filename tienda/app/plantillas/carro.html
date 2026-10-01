@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block titulo %}Tu carro — Kiltra{% endblock %}
+{% block contenido %}
+<div class="contenedor pagina">
+  <h1 class="letrero" style="margin-bottom:28px">tu carro</h1>
+  {% if not lineas %}
+  <div class="vacio" style="padding-top:0">
+    <p>Tu carro está vacío. Mira <a href="/">lo más pedido</a> o entra a una categoría para elegir tu talla.</p>
+  </div>
+  {% else %}
+  <div class="dos">
+    <div>
+      {% for l in lineas %}
+      <div class="linea">
+        <a class="linea-foto" href="/p/{{ l.sku }}?color={{ l.color|urlencode }}">{% if l.foto %}<img src="{{ l.foto }}" alt="" width="96" height="120">{% endif %}</a>
+        <div>
+          <h3 style="font-size:16px;margin:0 0 4px"><a href="/p/{{ l.sku }}?color={{ l.color|urlencode }}" style="text-decoration:none">{{ l.producto }}</a></h3>
+          <p>{{ l.color|capitalize }} · talla {{ l.talla }}</p>
+          {% if l.preventa %}<p>Preventa: {{ l.preventa|replace("preventa (", "")|replace(")", "") }}</p>{% endif %}
+          {% if l.stock < l.cantidad %}<p class="mensaje-no">Quedan {{ l.stock }}. Baja la cantidad para seguir.</p>{% endif %}
+          <form class="cantidad" action="/carro/actualizar" method="post">
+            <input type="hidden" name="i" value="{{ l.i }}">
+            <label class="sr" for="cant{{ l.i }}">Cantidad</label>
+            <select id="cant{{ l.i }}" name="cantidad" onchange="this.form.submit()">
+              {% for n in range(1, 11) %}<option {% if n == l.cantidad %}selected{% endif %}>{{ n }}</option>{% endfor %}
+            </select>
+            <noscript><button class="enlace">Actualizar</button></noscript>
+            <button class="enlace" name="cantidad" value="0">Quitar</button>
+          </form>
+        </div>
+        <div class="cifra">{{ pesos(l.total) }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    <aside class="resumen">
+      {% if falta > 0 %}
+      <p class="falta-gratis">Te faltan <strong class="cifra">{{ pesos(falta) }}</strong> para el despacho gratis.
+        <span class="medidor" aria-hidden="true"><span style="width: {{ ((gratis_desde - falta) / gratis_desde * 100)|round }}%"></span></span></p>
+      {% else %}
+      <p class="falta-gratis">Tu despacho es gratis.</p>
+      {% endif %}
+      <dl>
+        <dt>Subtotal</dt><dd class="cifra">{{ pesos(subtotal) }}</dd>
+        <dt>Despacho</dt><dd>Se calcula con tu comuna</dd>
+      </dl>
+      <a class="boton boton-ancho" href="/checkout">Ir a pagar</a>
+    </aside>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

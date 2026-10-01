@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block titulo %}Guía de tallas — Kiltra{% endblock %}
+{% block contenido %}
+<div class="contenedor pagina">
+  <h1 class="letrero" style="margin-bottom:8px">guía de tallas</h1>
+  <div class="texto">
+    <p>Mide tu contorno con una huincha, sin apretar. Si estás entre dos tallas, te recomendamos la más grande.</p>
+    <div class="dos" style="margin-top:28px;grid-template-columns:1fr 1fr">
+      <div>
+        <h2 style="margin-top:0">Poleras, polerones, camisas, chaquetas y vestidos</h2>
+        <table><tr><th>Talla</th><th class="num">Contorno de pecho</th></tr>
+          {% for t, c in guia.pecho.items() %}<tr><td>{{ t }}</td><td class="num">{{ c }} cm</td></tr>{% endfor %}</table>
+      </div>
+      <div>
+        <h2 style="margin-top:0">Jeans y pantalones</h2>
+        <table><tr><th>Talla</th><th class="num">Cintura</th></tr>
+          {% for t, c in guia.cintura.items() %}<tr><td>{{ t }}</td><td class="num">{{ c }} cm</td></tr>{% endfor %}</table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

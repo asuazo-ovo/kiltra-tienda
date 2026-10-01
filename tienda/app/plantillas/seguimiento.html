@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block titulo %}Sigue tu pedido — Kiltra{% endblock %}
+{% block contenido %}
+<div class="contenedor pagina recibo">
+  <h1 class="letrero" style="margin-bottom:20px">sigue tu pedido</h1>
+  <form method="post" class="fila-2" style="align-items:end;max-width:640px">
+    <div class="campo"><label for="numero">Número de pedido</label><input id="numero" name="numero" placeholder="KT-1042" value="{{ numero }}"></div>
+    <div class="campo"><label for="email">Correo de la compra</label><input id="email" name="email" type="email" value="{{ email }}"></div>
+    <div><button class="boton" type="submit">Buscar pedido</button></div>
+  </form>
+  {% if error %}<p class="error" role="alert" style="margin-top:20px">{{ error }}</p>{% endif %}
+
+  {% if p %}
+  <section style="margin-top:36px">
+    <h2 style="font-size:22px;margin:0">Pedido {{ p.numero }}: {{ p.estado }}</h2>
+    {% if p.estado in etapas %}
+    {% set idx = etapas.index(p.estado) %}
+    <ol class="etapas">
+      {% for e in etapas %}<li class="{{ 'hecha' if loop.index0 <= idx else '' }}">{{ e|capitalize }}</li>{% endfor %}
+    </ol>
+    {% else %}
+    <p>Si tienes dudas sobre este estado, escríbenos por WhatsApp con tu número de pedido.</p>
+    {% endif %}
+    <table>
+      <tr><td>Comprado el</td><td>{{ fecha_larga(p.fecha|fecha) }}</td></tr>
+      {% if p.seguimiento %}<tr><td>Courier</td><td>{{ p.courier }}, seguimiento {{ p.seguimiento }}</td></tr>{% endif %}
+      {% if p.fecha_despacho %}<tr><td>Despachado el</td><td>{{ fecha_larga(p.fecha_despacho|fecha) }}</td></tr>{% endif %}
+      {% if p.fecha_entrega %}<tr><td>Entregado el</td><td>{{ fecha_larga(p.fecha_entrega|fecha) }}</td></tr>
+      {% elif p.fecha_estimada %}<tr><td>Llegada estimada</td><td>{{ fecha_larga(p.fecha_estimada|fecha) }}</td></tr>{% endif %}
+      {% for i in p["items"] %}<tr><td>{{ i.cantidad }} ×</td><td>{{ i.producto }}, {{ i.color }}, talla {{ i.talla }}</td></tr>{% endfor %}
+    </table>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

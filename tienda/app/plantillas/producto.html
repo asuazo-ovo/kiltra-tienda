@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% from "_prenda.html" import prenda %}
+{% block titulo %}{{ p.nombre }} — Kiltra{% endblock %}
+{% block contenido %}
+<div class="contenedor">
+  <nav class="migas" aria-label="Ruta"><a href="/">Inicio</a> / <a href="/c/{{ p.slug_cat }}">{{ p.categoria|capitalize }}</a> / {{ p.nombre }}</nav>
+  <div class="ficha">
+    <figure class="ficha-foto" style="margin:0">
+      {% if p.foto %}<img src="{{ p.foto }}" alt="{{ p.nombre }}{% if p.color_foto %}, color {{ p.color_foto }}{% endif %}" width="1200" height="1500">
+      {% else %}<div class="prenda-foto" style="height:100%"><span class="sin-foto">{{ p.nombre }}</span></div>{% endif %}
+      {% if p.foto and p.color_foto and p.colores|length > 1 %}<figcaption>En la foto: {{ p.color_foto }}</figcaption>{% endif %}
+    </figure>
+
+    <div class="ficha-info">
+      {% if agregado %}
+      <div class="agregado" role="status">
+        <span>Agregaste {{ p.nombre|lower }} al carro.</span>
+        <a href="/carro">Ver carro</a>
+      </div>
+      {% endif %}
+      <h1 class="letrero">{{ p.nombre|lower }}</h1>
+      <p class="ficha-precio cifra">{{ pesos(p.precio) }}</p>
+
+      {% if p.preventa %}
+      <p class="preventa-nota">Esta prenda está en preventa: {{ p.preventa|replace("preventa (llega ", "llega a bodega el ")|replace(")", "") }}. La despachamos apenas llegue.</p>
+      {% endif %}
+
+      <form action="/carro/agregar" method="post">
+        <input type="hidden" name="sku" value="{{ p.sku }}">
+        <input type="hidden" name="color" value="{{ color }}">
+        {% if p.colores|length > 1 %}
+        <div class="opcion">
+          <div class="opcion-titulo">Color: <strong>{{ color }}</strong></div>
+          <div class="colores">
+            {% for c in p.colores %}
+            <a class="color" href="/p/{{ p.sku }}?color={{ c|urlencode }}" style="background: {{ muestra(c) }}" title="{{ c }}"
+               aria-label="Color {{ c }}" {% if c == color %}aria-current="true"{% endif %}></a>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        <fieldset class="opcion">
+          <legend class="sr">Talla</legend>
+          <div class="opcion-titulo opcion-titulo-fila"><span>Talla</span>{% if tallas|length > 1 %}<a href="/guia-de-tallas">Guía de tallas</a>{% endif %}</div>
+          <div class="tallas">
+            {% set elegida = namespace(v=None) %}
+            {% for v in tallas %}
+            {% if v.stock > 0 and elegida.v is none %}{% set elegida.v = v %}{% endif %}
+            <label class="talla">
+              <input type="radio" name="talla" value="{{ v.talla }}" {% if v.stock == 0 %}disabled{% endif %}
+                     {% if elegida.v and elegida.v.talla == v.talla %}checked{% endif %} data-stock="{{ v.stock }}">
+              <span>{{ v.talla }}{% if v.stock == 0 %}<span class="sr"> (agotada)</span>{% endif %}</span>
+            </label>
+            {% endfor %}
+          </div>
+          <p class="stock-nota" id="stock-nota" aria-live="polite">
+            {% if elegida.v and elegida.v.stock <= 2 %}Quedan {{ elegida.v.stock }} en {{ elegida.v.talla }}{% endif %}
+          </p>
+        </fieldset>
+
+        {% if elegida.v %}
+        <button class="boton boton-ancho" type="submit">Agregar al carro</button>
+        {% else %}
+        <button class="boton boton-ancho" type="submit" disabled>Agotado en {{ color }}</button>
+        {% endif %}
+      </form>
+
+      <div class="calcula">
+        <h2 style="font-size:16px;margin:0 0 10px">Calcula tu despacho</h2>
+        <form method="get">
+          <input type="hidden" name="color" value="{{ color }}">
+          <label class="sr" for="comuna">Comuna</label>
+          <select id="comuna" name="comuna">
+            <option value="">Elige tu comuna</option>
+            {% for c in comunas %}<option {% if despacho and despacho.comuna == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+          </select>
+          <button class="boton boton-secundario" type="submit">Calcular</button>
+        </form>
+        {% if despacho %}
+        <p class="resultado">
+          {% if despacho.costo is not none %}
+          A {{ despacho.comuna }}: <strong class="cifra">{{ "gratis" if despacho.costo == 0 else pesos(despacho.costo) }}</strong>.
+          Si compras hoy, llega el <strong>{{ fecha_larga(despacho.fecha) }}</strong>.
+          {% else %}No despachamos a esa comuna.{% endif %}
+        </p>
+        {% endif %}
+      </div>
+
+      <details class="detalle" open>
+        <summary>Descripción</summary>
+        <p>{{ p.descripcion or "Diseñado y cosido en nuestro taller de Ñuñoa." }} Lavar en frío, del revés.</p>
+      </details>
+      {% if tallas|length > 1 %}
+      <details class="detalle">
+        <summary>Medidas</summary>
+        {% if p.categoria == 'pantalones' and tallas[0].talla[:1].isdigit() %}
+        <table><tr><th>Talla</th><th class="num">Cintura</th></tr>
+          {% for t, c in guia.cintura.items() %}<tr><td>{{ t }}</td><td class="num">{{ c }} cm</td></tr>{% endfor %}</table>
+        {% else %}
+        <table><tr><th>Talla</th><th class="num">Contorno de pecho</th></tr>
+          {% for t, c in guia.pecho.items() %}<tr><td>{{ t }}</td><td class="num">{{ c }} cm</td></tr>{% endfor %}</table>
+        {% endif %}
+      </details>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if relacionados %}
+  <section class="seccion" style="padding-top:0">
+    <h2 class="letrero" style="margin-bottom:24px">también en {{ p.categoria }}</h2>
+    <div class="vitrina">{% for r in relacionados %}{{ prenda(r) }}{% endfor %}</div>
+  </section>
+  {% endif %}
+</div>
+<script>
+  document.querySelectorAll('.talla input').forEach(function (r) {
+    r.addEventListener('change', function () {
+      var s = +r.dataset.stock, n = document.getElementById('stock-nota');
+      n.textContent = s <= 2 ? 'Quedan ' + s + ' en ' + r.value : '';
+      n.className = 'stock-nota' + (s <= 2 ? ' pocas' : '');
+    });
+  });
+  var n0 = document.getElementById('stock-nota'); if (n0 && n0.textContent.trim()) n0.classList.add('pocas');
+</script>
+{% endblock %}

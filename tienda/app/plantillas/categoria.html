@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_prenda.html" import prenda %}
+{% block titulo %}{{ titulo }} — Kiltra{% endblock %}
+{% block contenido %}
+<div class="contenedor">
+  <div class="cabeza-cat">
+    <div>
+      <h1 class="letrero">{{ titulo|lower }}</h1>
+      <p>{{ productos|length }} {{ "producto" if productos|length == 1 else "productos" }}</p>
+    </div>
+    {% if orden %}
+    <form class="orden" method="get">
+      <label class="sr" for="orden">Ordenar</label>
+      <select id="orden" name="orden" onchange="this.form.submit()">
+        <option value="relevancia" {% if orden == 'relevancia' %}selected{% endif %}>Destacados</option>
+        <option value="precio_asc" {% if orden == 'precio_asc' %}selected{% endif %}>Precio: menor a mayor</option>
+        <option value="precio_desc" {% if orden == 'precio_desc' %}selected{% endif %}>Precio: mayor a menor</option>
+      </select>
+      <noscript><button class="enlace">Ordenar</button></noscript>
+    </form>
+    {% endif %}
+  </div>
+  {% if productos %}
+  <div class="vitrina" style="padding-bottom:72px">
+    {% for p in productos %}{{ prenda(p) }}{% endfor %}
+  </div>
+  {% else %}
+  <div class="vacio">
+    {% if q %}
+    <p>No encontramos prendas con «{{ q }}». Prueba con una palabra más general, como «polerón» o «jeans», o revisa las categorías de arriba.</p>
+    {% else %}
+    <p>Escribe lo que buscas en el buscador de arriba.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

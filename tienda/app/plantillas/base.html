@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Kiltra — ropa sin pedigrí, con mucha calle{% endblock %}</title>
+  <meta name="description" content="Kiltra: ropa casual cosida en Ñuñoa, en lotes cortos. Tienda ficticia para un curso de OVO.">
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
+  <link rel="stylesheet" href="/static/css/kiltra.css">
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+  <a class="sr" href="#contenido">Ir al contenido</a>
+  <div class="aviso-curso">Tienda ficticia para un curso de OVO. Nada se cobra ni se despacha.</div>
+  <div class="barra-despacho">Despacho gratis desde {{ pesos(gratis_desde) }} · en la RM llega en {{ plazo_rm }}</div>
+  <header class="encabezado">
+    <div class="contenedor">
+      <a class="marca letrero" href="/">kiltra</a>
+      <button class="menu-boton" type="button" aria-expanded="false" aria-controls="nav"
+              onclick="const n=document.getElementById('nav');n.classList.toggle('abierto');this.setAttribute('aria-expanded',n.classList.contains('abierto'))">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        <span class="sr">Menú</span>
+      </button>
+      <nav class="nav" id="nav" aria-label="Categorías">
+        {% for c, nombre in categorias %}
+        <a href="/c/{{ slug[c] }}" {% if slug_actual == slug[c] %}aria-current="page"{% endif %}>{{ nombre }}</a>
+        {% endfor %}
+      </nav>
+      <div class="herramientas">
+        <form class="buscador" action="/buscar" role="search">
+          <label class="sr" for="q">Buscar</label>
+          <input id="q" name="q" type="search" placeholder="Buscar" value="{{ q or '' }}">
+        </form>
+        <a class="icono-carro" href="/carro" aria-label="Carro de compras, {{ n_carro }} productos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+          {% if n_carro %}<span class="contador">{{ n_carro }}</span>{% endif %}
+        </a>
+      </div>
+    </div>
+  </header>
+  <main id="contenido">
+    {% block contenido %}{% endblock %}
+  </main>
+  <footer class="pie">
+    <div class="contenedor">
+      <div>
+        <span class="marca letrero">kiltra</span>
+        <p>Ropa sin pedigrí, con mucha calle. Cosida en nuestro taller de Ñuñoa desde 2021.</p>
+      </div>
+      <div>
+        <h2>Ayuda</h2>
+        <ul>
+          <li><a href="/preguntas-frecuentes">Preguntas frecuentes</a></li>
+          <li><a href="/guia-de-tallas">Guía de tallas</a></li>
+          <li><a href="/seguimiento">Sigue tu pedido</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Tienda</h2>
+        <ul>
+          {% for c, nombre in categorias[:4] %}<li><a href="/c/{{ slug[c] }}">{{ nombre }}</a></li>{% endfor %}
+        </ul>
+      </div>
+      <div>
+        <h2>Contacto</h2>
+        <ul>
+          <li>{% if whatsapp %}<a href="https://wa.me/{{ whatsapp }}">WhatsApp</a>{% else %}WhatsApp{% endif %}</li>
+          <li>Instagram @kiltra.cl</li>
+          <li>hola@kiltra.example</li>
+        </ul>
+      </div>
+      <p class="legal">Kiltra no existe: es el caso del curso «Agentes de WhatsApp para Profesionales» de OVO. Clientes, pedidos y courier son inventados. Las fotos son de bancos de imágenes con licencia libre (ver créditos en el repositorio).</p>
+    </div>
+  </footer>
+</body>
+</html>

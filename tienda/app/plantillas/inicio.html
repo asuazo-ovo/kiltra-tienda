@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "_prenda.html" import prenda %}
+{% block contenido %}
+<section class="contenedor portada">
+  <div class="portada-texto">
+    <h1 class="letrero lema">ropa sin pedigrí, con mucha calle</h1>
+    <p>Cosemos en Ñuñoa, en lotes cortos. Cuando un color se acaba, puede que no vuelva.</p>
+    <div><a class="boton" href="/c/camisas">Ver camisas</a></div>
+  </div>
+  <figure class="portada-foto" style="margin:0">
+    {% if portada.foto %}<img src="{{ portada.foto }}" alt="{{ portada.nombre }}" width="900" height="1125">{% endif %}
+    <figcaption><a href="/p/{{ portada.sku }}">{{ portada.nombre }}</a> · <span class="cifra">{{ pesos(portada.precio) }}</span></figcaption>
+  </figure>
+</section>
+
+<section class="contenedor seccion">
+  <div class="seccion-titulo">
+    <h2 class="letrero">lo más pedido</h2>
+    <a href="/c/poleras">Ver todo el catálogo</a>
+  </div>
+  <div class="vitrina">
+    {% for p in destacados %}{{ prenda(p) }}{% endfor %}
+  </div>
+</section>
+
+<section class="franja">
+  <div class="contenedor seccion tres">
+    <div>
+      <h3>Despacho a todo Chile</h3>
+      <p>Gratis desde {{ pesos(gratis_desde) }}. En la Región Metropolitana llega en {{ plazo_rm }}; al pagar ves la fecha estimada.</p>
+    </div>
+    <div>
+      <h3>Cambios sin enredo</h3>
+      <p>Si no te queda, la cambias por otra talla o color. Revisa los plazos en <a href="/preguntas-frecuentes">preguntas frecuentes</a>.</p>
+    </div>
+    <div>
+      <h3>Hecho en el taller</h3>
+      <p>Rocío diseña y cose cada lote en Ñuñoa. Los sábados puedes retirar tu pedido con hora agendada.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "admin_base.html" %}
+{% block panel %}
+<h1 class="letrero" style="font-size:40px;margin-bottom:16px">pedido {{ p.numero|lower }}</h1>
+<div class="dos">
+  <table>
+    <tr><td>Cliente</td><td>{{ p.cliente }} · {{ p.email }} · {{ p.telefono }}</td></tr>
+    <tr><td>Despacho</td><td>{{ p.direccion or "—" }}, {{ p.comuna }} ({{ p.zona }})</td></tr>
+    <tr><td>Compra</td><td>{{ p.fecha }} {{ p.hora }} · {{ p.medio_pago }}</td></tr>
+    {% for i in p["items"] %}<tr><td>{{ i.sku }}</td><td>{{ i.cantidad }} × {{ i.producto }}, {{ i.color }}, {{ i.talla }} · {{ pesos(i.precio_unitario) }}</td></tr>{% endfor %}
+    <tr><td>Totales</td><td>Subtotal {{ pesos(p.subtotal) }} · descuento {{ pesos(p.descuento) }} {{ p.codigo }} · despacho {{ pesos(p.despacho) }} · <strong>total {{ pesos(p.total) }}</strong></td></tr>
+    <tr><td>Courier</td><td>{{ p.courier or "—" }} {{ p.seguimiento }}</td></tr>
+    <tr><td>Fechas</td><td>Despacho {{ p.fecha_despacho or "—" }} · estimada {{ p.fecha_estimada or "—" }} · entrega {{ p.fecha_entrega or "—" }}</td></tr>
+    <tr><td>Nota interna</td><td>{{ p.nota_interna or "—" }}</td></tr>
+  </table>
+  <form method="post" class="resumen">
+    <div class="campo"><label for="estado">Estado</label>
+      <select id="estado" name="estado">{% for e in estados %}<option {% if e == p.estado %}selected{% endif %}>{{ e }}</option>{% endfor %}</select></div>
+    <button class="boton boton-ancho">Guardar estado</button>
+  </form>
+</div>
+{% endblock %}

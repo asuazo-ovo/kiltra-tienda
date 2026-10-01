@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block titulo %}Panel — Kiltra{% endblock %}
+{% block contenido %}
+<div class="contenedor panel">
+  <nav class="panel-nav" aria-label="Panel">
+    <strong>Panel de la tienda</strong>
+    <a href="/admin">Pedidos</a>
+    <a href="/admin/stock">Stock</a>
+    <a href="/admin/exportar/productos.csv">Exportar productos</a>
+    <a href="/admin/exportar/pedidos.csv">Exportar pedidos</a>
+    <a href="/api/docs">API</a>
+  </nav>
+  {% block panel %}{% endblock %}
+</div>
+{% endblock %}

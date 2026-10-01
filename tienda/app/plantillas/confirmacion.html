@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block titulo %}Pedido {{ p.numero }} — Kiltra{% endblock %}
+{% block contenido %}
+<div class="contenedor pagina recibo">
+  <h1 class="letrero" style="margin-bottom:12px">gracias, {{ p.cliente.split()[0]|lower }}</h1>
+  <p style="font-size:18px">Tu pedido es el <strong class="cifra">{{ p.numero }}</strong>. Guarda este número: lo vas a necesitar si nos escribes.</p>
+
+  {% if p.estado == "pago pendiente" %}
+  <div class="datos-banco">
+    <p style="margin:0 0 8px"><strong>Transfiere {{ pesos(p.total) }} para confirmar tu pedido.</strong></p>
+    <p style="margin:0">Kiltra SpA · RUT 77.000.000-0 · Cuenta corriente 0000000000 · Banco ficticio<br>
+      Envía el comprobante por WhatsApp con tu número de pedido.</p>
+  </div>
+  {% else %}
+  <p>Recibimos tu pago. Te enviamos la boleta a <strong>{{ p.email }}</strong>.</p>
+  {% endif %}
+
+  <table style="margin:24px 0">
+    {% for i in p["items"] %}
+    <tr><td>{{ i.cantidad }} × {{ i.producto }}, {{ i.color }}, talla {{ i.talla }}</td><td class="num">{{ pesos(i.precio_unitario * i.cantidad) }}</td></tr>
+    {% endfor %}
+    {% if p.descuento %}<tr><td>Descuento {{ p.codigo }}</td><td class="num">−{{ pesos(p.descuento) }}</td></tr>{% endif %}
+    <tr><td>Despacho a {{ p.comuna }}</td><td class="num">{{ "Gratis" if p.despacho == 0 else pesos(p.despacho) }}</td></tr>
+    <tr><th>Total</th><th class="num">{{ pesos(p.total) }}</th></tr>
+  </table>
+  <p>Fecha estimada de llegada: <strong>{{ fecha_larga(p.fecha_estimada|fecha) }}</strong>.</p>
+  <p><a class="boton boton-secundario" href="/seguimiento">Seguir mi pedido</a></p>
+</div>
+{% endblock %}

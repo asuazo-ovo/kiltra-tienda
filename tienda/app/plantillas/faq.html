@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block titulo %}Preguntas frecuentes — Kiltra{% endblock %}
+{% block contenido %}
+<div class="contenedor pagina">
+  <h1 class="letrero" style="margin-bottom:8px">preguntas frecuentes</h1>
+  <div class="texto">
+    {% for b in bloques %}
+    <h2>{{ b.pregunta }}</h2>
+    {% for r in b.respuesta %}<p>{{ r }}</p>{% endfor %}
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

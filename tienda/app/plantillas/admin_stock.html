@@ -1,0 +1,21 @@
+{% extends "admin_base.html" %}
+{% block panel %}
+<h1 class="letrero" style="font-size:40px;margin-bottom:8px">stock de la web</h1>
+<p style="max-width:68ch">Este es el stock que ve el cliente en la tienda. No se conecta con la planilla de bodega: si algo se vende por otro canal, hay que descontarlo aquí a mano.</p>
+{% if guardado %}<p class="mensaje-ok" role="status">Stock guardado.</p>{% endif %}
+<form method="post">
+  <div class="tabla-scroll">
+  <table>
+    <tr><th>SKU</th><th>Producto</th><th>Color</th><th>Talla</th><th>Estado</th><th class="num">Stock</th></tr>
+    {% for f in filas %}
+    <tr>
+      <td>{{ f.sku }}</td><td>{{ f.nombre }}</td><td>{{ f.color }}</td><td>{{ f.talla }}</td><td><small>{{ f.estado }}</small></td>
+      <td class="num"><label class="sr" for="s{{ loop.index }}">Stock {{ f.nombre }} {{ f.color }} {{ f.talla }}</label>
+        <input id="s{{ loop.index }}" name="s|{{ f.sku }}|{{ f.color }}|{{ f.talla }}" value="{{ f.stock }}" inputmode="numeric"></td>
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+  <p><button class="boton">Guardar stock</button></p>
+</form>
+{% endblock %}

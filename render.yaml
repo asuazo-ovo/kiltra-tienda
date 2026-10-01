@@ -1,0 +1,24 @@
+# Despliegue de la tienda ficticia Kiltra en Render (misma receta que SIGMA Mantención de Cerro Sauce).
+# Render lee este archivo al conectar el repo (New → Blueprint) y crea el servicio con estas opciones.
+# Las tres claves las genera Render (generateValue) y se ven en el panel → Environment; nunca van en el repo.
+services:
+  - type: web
+    name: kiltra-tienda
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r tienda/requirements.txt
+    startCommand: cd tienda && uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"
+    healthCheckPath: /salud
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      - key: KILTRA_DB
+        value: /tmp/kiltra.db       # sin disco persistente: la base vuelve a la foto del 29-sep en cada arranque
+      - key: KILTRA_API_KEY
+        generateValue: true
+      - key: KILTRA_ADMIN_CLAVE
+        generateValue: true
+      - key: KILTRA_SECRETO
+        generateValue: true

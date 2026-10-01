@@ -1,0 +1,20 @@
+{% macro prenda(p) %}
+<a class="prenda" href="/p/{{ p.sku }}">
+  <div class="prenda-foto">
+    {% if p.foto %}<img src="{{ p.foto }}" alt="{{ p.nombre }}{% if p.color_foto %}, color {{ p.color_foto }}{% endif %}" loading="lazy" width="600" height="750">
+    {% else %}<span class="sin-foto">{{ p.nombre }}</span>{% endif %}
+    {% if p.agotado %}<span class="estado">Agotado</span>
+    {% elif p.preventa %}<span class="estado estado-preventa">Preventa</span>
+    {% elif p.stock_total <= 6 %}<span class="estado estado-pocas">Quedan pocas</span>{% endif %}
+  </div>
+  <div class="prenda-datos">
+    <h3 class="prenda-nombre">{{ p.nombre }}</h3>
+    <span class="prenda-precio cifra">{{ pesos(p.precio) }}</span>
+    {% if p.colores|length > 1 %}
+    <div class="muestras" aria-label="{{ p.colores|length }} colores">
+      {% for c in p.colores %}<span class="muestra" style="background: {{ muestra(c) }}" title="{{ c }}"></span>{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</a>
+{% endmacro %}

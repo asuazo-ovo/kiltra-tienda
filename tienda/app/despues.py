@@ -117,7 +117,7 @@ def config(base):
     e = c["envios"]
     plazo = {"RM": (2, 4), "Regiones": (3, 6), "Extremo": (7, 10)}
     for z, (lo, hi) in plazo.items():
-        e["zonas"][z].update({"dias_habiles": hi, "texto": f"{lo} a {hi} días hábiles desde el retiro"})
+        e["zonas"][z].update({"dias_habiles": hi, "dias_habiles_min": lo, "texto": f"{lo} a {hi} días hábiles desde el retiro"})
     e.update({"cuenta_desde": "retiro", "dias_de_retiro": [NOMBRES_DIA[d] for d in RETIROS], "nota_retiro": NOTA_RETIRO,
               "cobertura": {"texto": "Todo Chile continental.", "se_cotiza": F["cobertura"]["cotizacion"],
                             "internacional": False}})

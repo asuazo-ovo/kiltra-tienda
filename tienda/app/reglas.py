@@ -47,16 +47,73 @@ def costo_despacho(comuna, neto):
     return 0 if neto >= e["gratis_desde"] else e["zonas"][z]["costo"]
 
 
+# Feriados de Chile que cuenta la tienda para sus fechas de hoy en adelante. Los de septiembre vienen del caso;
+# los demás no van en el generador para no mover las fechas del «antes» (los insumos quedan idénticos).
+FERIADOS = {**caso.FERIADOS,
+            dt.date(2026, 10, 12): "Encuentro de Dos Mundos", dt.date(2026, 10, 31): "Día de las Iglesias Evangélicas",
+            dt.date(2026, 11, 1): "Todos los Santos", dt.date(2026, 12, 8): "Inmaculada Concepción",
+            dt.date(2026, 12, 25): "Navidad", dt.date(2027, 1, 1): "Año Nuevo"}
+
+
+def habil(d):
+    return d.weekday() < 5 and d not in FERIADOS
+
+
+def sumar_habiles(d, n):
+    while n > 0:
+        d += dt.timedelta(days=1)
+        if habil(d):
+            n -= 1
+    return d
+
+
+def proximo_retiro(d):
+    """El primer día de retiro del courier (lunes, miércoles o viernes hábil) estrictamente después de d."""
+    from .despues import RETIROS
+    d += dt.timedelta(days=1)
+    while d.weekday() not in RETIROS or not habil(d):
+        d += dt.timedelta(days=1)
+    return d
+
+
 def fecha_estimada(comuna, desde=None):
     e = envios()
     z = e["comunas"].get(comuna)
     if z is None:
         return None
-    inicio = (desde or ahora()).date()
-    if e.get("cuenta_desde") == "retiro":          # el «después» (A4): desde el próximo retiro del courier
-        from .despues import proximo_retiro
-        inicio = proximo_retiro(inicio)
-    return caso.sumar_habiles(inicio, e["zonas"][z]["dias_habiles"])
+    return estimado_zona(z, desde)["hasta"]
+
+
+def estimado_zona(z, desde=None):
+    """Lo que la tienda promete hoy para una zona: desde qué día cuenta, entre qué fechas llega y la fecha estimada.
+    En el «antes» cuenta desde la compra, como la web del 29-sep (A4); en el «después», desde el próximo retiro."""
+    e = envios()
+    zona_cfg = e["zonas"][z]
+    compra = (desde or ahora()).date()
+    if e.get("cuenta_desde") == "retiro":
+        inicio = proximo_retiro(compra)
+        lo = zona_cfg.get("dias_habiles_min", zona_cfg["dias_habiles"])
+        return {"compra": compra, "proximo_retiro": inicio, "desde": sumar_habiles(inicio, lo),
+                "hasta": sumar_habiles(inicio, zona_cfg["dias_habiles"])}
+    hasta = caso.sumar_habiles(compra, zona_cfg["dias_habiles"])
+    return {"compra": compra, "proximo_retiro": None, "desde": None, "hasta": hasta}
+
+
+def estimados_si_compras_hoy(desde=None):
+    out = {}
+    for z in envios()["zonas"]:
+        x = estimado_zona(z, desde)
+        txt = (f"Si compras hoy, el courier lo retira el {fecha_larga(x['proximo_retiro'])} y llega entre el "
+               f"{fecha_larga(x['desde'])} y el {fecha_larga(x['hasta'])} (fecha estimada: {fecha_larga(x['hasta'])})."
+               if x["proximo_retiro"] else f"Fecha estimada de llegada si compras hoy: {fecha_larga(x['hasta'])}.")
+        out[z] = {"next_pickup": x["proximo_retiro"].isoformat() if x["proximo_retiro"] else None,
+                  "from": x["desde"].isoformat() if x["desde"] else None, "to": x["hasta"].isoformat(), "text": txt}
+    return out
+
+
+def feriados_proximos(desde=None, dias=60):
+    hoy = (desde or ahora()).date()
+    return [{"date": d.isoformat(), "name": n} for d, n in sorted(FERIADOS.items()) if hoy <= d <= hoy + dt.timedelta(days=dias)]
 
 
 def fecha_larga(d):

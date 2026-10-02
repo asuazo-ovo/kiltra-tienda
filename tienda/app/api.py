@@ -14,7 +14,7 @@ import os
 from fastapi import APIRouter, Body, Depends, Form, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
-from . import accesos, datos
+from . import accesos, datos, reglas
 from .plataforma import PLATAFORMA, TIENDA_CODIGO
 
 router = APIRouter(prefix="/api/v1")
@@ -115,7 +115,10 @@ def tienda(request: Request, acceso=requiere("leer_envios")):
             "hours": t["horario"], "pickup": t.get("showroom"), "size_guide": datos.tallas(),
             "shipping": {"courier": e["courier"], "free_from": e["gratis_desde"], "zones": e["zonas"], "comunas": e["comunas"],
                          "counted_from": e.get("cuenta_desde", "compra"), "courier_pickup_days": e.get("dias_de_retiro"),
-                         "note": e.get("nota_retiro"), "coverage": e.get("cobertura")}}
+                         "note": e.get("nota_retiro"), "coverage": e.get("cobertura"),
+                         "estimate_if_bought_now": reglas.estimados_si_compras_hoy(),
+                         "estimate_computed_at": reglas.ahora().isoformat(timespec="minutes"),
+                         "upcoming_holidays": reglas.feriados_proximos()}}
 
 
 @router.get("/policies", tags=["tienda"])

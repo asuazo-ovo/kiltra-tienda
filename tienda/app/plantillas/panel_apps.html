@@ -15,18 +15,19 @@
   {% for a in apps %}
   <tr>
     <td><strong>{{ a.nombre }}</strong><br><small>Versión {{ a.version_instalada or a.version }}</small></td>
-    <td>{% if a.instalada %}<span class="estado e-listo">instalada</span><br><small>desde {{ a.instalada[:10] }}</small>
+    <td style="white-space:nowrap">{% if a.instalada %}<span class="estado e-listo">instalada</span><br><small>desde {{ a.instalada[:10] }}</small>
         {% if a.version|string != a.version_instalada %}<br><small style="color:#B45309">Hay una versión nueva por aprobar</small>{% endif %}
         {% else %}<span class="estado">sin instalar</span>{% endif %}</td>
     <td>{% for x in (a.alcances_instalados if a.instalada else a.alcances) %}<code class="alc">{{ x }}</code> {% endfor %}</td>
-    <td style="white-space:nowrap">
+    <td style="white-space:nowrap"><div style="display:flex;gap:8px;justify-content:flex-end">
+      <a class="boton boton-sec" href="/desarrolladores/apps/{{ a.client_id }}">Ver credenciales</a>
       {% if a.instalada and a.version|string == a.version_instalada %}
       <form method="post" action="/admin/apps/desinstalar/{{ a.client_id }}" onsubmit="return confirm('¿Desinstalar {{ a.nombre }}? Dejará de funcionar de inmediato: no podrá ver ni modificar nada de tu tienda.')">
         <button class="boton boton-peligro" type="submit">Desinstalar</button></form>
       {% else %}
       <a class="boton boton-sec" href="/admin/apps/instalar/{{ a.client_id }}">{{ "Revisar y aprobar" if a.instalada else "Instalar" }}</a>
       {% endif %}
-    </td>
+    </div></td>
   </tr>
   {% else %}
   <tr><td colspan="4">No hay apps. Crea una en <a href="/desarrolladores">Desarrollar apps</a>.</td></tr>

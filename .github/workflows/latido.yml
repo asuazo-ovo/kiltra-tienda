@@ -1,0 +1,18 @@
+# Latido de la tienda Kiltra: mantiene despierto el servicio gratis de Render en horario de prueba y grabación.
+# Render duerme el servicio tras 15 minutos sin visitas y tarda 30-60 s en despertar; Kapso corta las funciones
+# a los 30 s, así que la primera pregunta del día fallaría. Decisión de Agustín (2-oct-2026): solo de lunes a
+# viernes, de 9:00 a 20:00 de Chile, para no gastar las 750 horas mensuales que Render comparte con SIGMA.
+# Horario en UTC: Chile está en UTC-3 de septiembre a abril. En invierno (UTC-4) corre de 8:00 a 19:00.
+# Se copia a .github/workflows/ del repo con armar_repo.py; la fuente es el vault.
+name: Latido de la tienda
+on:
+  schedule:
+    - cron: "*/5 12-22 * * 1-5"
+  workflow_dispatch: {}
+jobs:
+  latido:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Despertar la tienda
+        run: curl -fsS --max-time 90 --retry 2 --retry-delay 10 https://kiltra-tienda.onrender.com/salud

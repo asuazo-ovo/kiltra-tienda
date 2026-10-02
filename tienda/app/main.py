@@ -188,7 +188,7 @@ def ficha(request: Request, sku: str, color: str = "", comuna: str = "", agregad
         despacho = {"comuna": comuna, "costo": costo, "fecha": reglas.fecha_estimada(comuna)} if costo is not None else {"comuna": comuna}
     relacionados = [_preparar(x) for x in datos.productos(p["categoria"]) if x["sku"] != p["sku"]][:4]
     return html(request, "producto.html", p=p, color=color, tallas=tallas, despacho=despacho, comunas=reglas.comunas(),
-                agregado=agregado, relacionados=relacionados, guia=caso.GUIA_TALLAS["web"])
+                agregado=agregado, relacionados=relacionados, guia=datos.tallas())
 
 
 # ─────────────────────────── Carro y checkout ───────────────────────────
@@ -340,7 +340,7 @@ def faq(request: Request):
 
 @app.get("/guia-de-tallas", response_class=HTMLResponse)
 def guia(request: Request):
-    return html(request, "tallas.html", guia=caso.GUIA_TALLAS["web"])
+    return html(request, "tallas.html", guia=datos.tallas())
 
 
 # ─────────────────────────── Panel de Mostrador ───────────────────────────
@@ -372,7 +372,7 @@ def panel(request):
 
 def phtml(request, plantilla, seccion, status=200, **kw):
     return plantillas.TemplateResponse(request, plantilla, {"request": request, "seccion": seccion,
-                                                           "tienda": datos.config("tienda"),
+                                                           "tienda": datos.config("tienda"), "estado_demo": datos.estado(),
                                                            "apps_nav": [a for a in accesos.apps() if a["instalada"]], **kw},
                                        status_code=status)
 
@@ -486,7 +486,21 @@ async def p_descuentos_guardar(request: Request):
 @app.get("/admin/configuracion", response_class=HTMLResponse)
 def p_config_general(request: Request):
     panel(request)
-    return phtml(request, "panel_config_general.html", "configuracion", sub="general", guardado=request.query_params.get("guardado"))
+    return phtml(request, "panel_config_general.html", "configuracion", sub="general", guardado=request.query_params.get("guardado"),
+                 estados=datos.ESTADOS_DEMO, cambiado=request.query_params.get("estado"),
+                 prueba=datos.hay_pedidos_de_prueba())
+
+
+@app.post("/admin/configuracion/estado")
+async def p_config_estado(request: Request):
+    """El interruptor del curso: recarga la configuración, el catálogo y el stock en el estado «antes» o «después»."""
+    panel(request)
+    form = await request.form()
+    est = str(form.get("estado", "")).strip()
+    if est not in datos.ESTADOS_DEMO:
+        raise HTTPException(422, "Estado no válido.")
+    datos.aplicar_estado(est)
+    return RedirectResponse(f"/admin/configuracion?estado={est}", status_code=303)
 
 
 @app.post("/admin/configuracion")
@@ -524,6 +538,10 @@ async def p_envios_guardar(request: Request):
         e["zonas"][z] = {"costo": num(f"costo_{z}", e["zonas"][z]["costo"]),
                          "dias_habiles": num(f"dias_{z}", e["zonas"][z]["dias_habiles"]),
                          "texto": str(form.get(f"texto_{z}", e["zonas"][z]["texto"])).strip()}
+    if form.get("cuenta_desde") in ("compra", "retiro"):
+        e["cuenta_desde"] = form["cuenta_desde"]
+    if "nota_retiro" in form:
+        e["nota_retiro"] = str(form["nota_retiro"]).strip()
     datos.guardar_config("envios", e)
     return RedirectResponse("/admin/configuracion/envios?guardado=1", status_code=303)
 
@@ -549,6 +567,8 @@ async def p_politicas_guardar(request: Request):
     r["desde"] = form.get("desde", r["desde"])
     r["condicion"] = str(form.get("condicion", r["condicion"])).strip()
     r["envio_del_cambio"] = form.get("envio_del_cambio") or None
+    if r["envio_del_cambio"] != "segun_motivo":
+        r.pop("envio_del_cambio_detalle", None)
     r["reembolso"] = str(form.get("reembolso", r["reembolso"])).strip()
     datos.guardar_config("politicas", pols)
     return RedirectResponse("/admin/configuracion/politicas?guardado=1", status_code=303)
@@ -702,7 +722,7 @@ def p_exportar(request: Request, que: str):
 
 @app.get("/salud", include_in_schema=False)
 def salud():
-    return {"ok": True}
+    return {"ok": True, "estado": datos.estado()}
 
 
 @app.exception_handler(404)

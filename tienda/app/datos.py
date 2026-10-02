@@ -46,7 +46,7 @@ def config_inicial():
         "envios": {"courier": caso.COURIER, "gratis_desde": F["despacho_gratis"]["web"],
                    "zonas": {z: {"costo": F["costo_despacho"][z], "dias_habiles": F["plazo_prometido_dias"][z],
                                  "texto": texto_plazo[z]} for z in ("RM", "Regiones", "Extremo")},
-                   "comunas": dict(sorted(caso.COMUNAS.items()))},
+                   "comunas": dict(sorted(caso.COMUNAS.items())), "cuenta_desde": "compra"},
         "descuentos": [
             {"codigo": "BIENVENIDA10", "porcentaje": 10, "solo_primera_compra": True, "vence": None, "activo": True},
             {"codigo": "CAMI15", "porcentaje": 15, "solo_primera_compra": False, "vence": "2026-08-31", "activo": True},
@@ -66,6 +66,8 @@ def config_inicial():
                            "condicion": "sin uso y con etiqueta", "envio_del_cambio": None, "reembolso": "al mismo medio de pago"},
             },
         },
+        # A5: la web publica su propia guía; la del proveedor vive en otro archivo y no calza.
+        "tallas": {"fuente": "web", **caso.GUIA_TALLAS["web"]},
     }
 
 
@@ -112,9 +114,85 @@ def crear_base(forzar=False):
                             (p["numero"], j, it["sku"], it["producto"], it["color"], it["talla"], it["cantidad"],
                              it["precio_unitario"]))
         con.execute("INSERT INTO meta VALUES ('creada', ?)", (dt.datetime.now().isoformat(timespec="seconds"),))
+        con.execute("INSERT INTO meta VALUES ('estado', 'antes')")
         for clave, valor in config_inicial().items():
             con.execute("INSERT INTO config VALUES (?, ?)", (clave, json.dumps(valor, ensure_ascii=False)))
+    # El estado inicial lo da la variable de entorno: en Render la base se rehace en cada reinicio.
+    if os.environ.get("KILTRA_ESTADO", "antes").strip().lower() in ("despues", "después"):
+        aplicar_estado("despues")
     return True
+
+
+# ─────────────────────────── El interruptor «antes / después» del curso ───────────────────────────
+ESTADOS_DEMO = {"antes": "Antes de Preparar: la tienda del 29-sep, con sus contradicciones",
+                "despues": "Después de Preparar: las Políticas de Kiltra v1 aplicadas"}
+
+
+def estado():
+    return meta("estado") or "antes"
+
+
+def aplicar_estado(est):
+    """Recarga la configuración, el catálogo (nombres y descripciones) y el stock sembrados en ese estado.
+    Los pedidos, los clientes y las apps de desarrollador no se tocan."""
+    from . import despues
+    if est not in ESTADOS_DEMO:
+        raise ValueError(f"Estado no válido: {est}. Usa «antes» o «despues».")
+    base = config_inicial()
+    cfg = despues.config(base) if est == "despues" else base
+    with conexion() as con:
+        con.execute("DELETE FROM config")
+        for clave, valor in cfg.items():
+            con.execute("INSERT INTO config VALUES (?, ?)", (clave, json.dumps(valor, ensure_ascii=False)))
+        for sku, nombre, *_ in caso.PRODUCTOS:
+            if est == "despues":
+                nombre, desc = despues.NOMBRES.get(sku, nombre), despues.descripcion(sku)
+            else:
+                desc = caso.DESCRIPCIONES_WEB.get(sku, "")
+            con.execute("UPDATE productos SET nombre=?, descripcion=? WHERE sku=?", (nombre, desc, sku))
+        for v in variantes_web():
+            stock = v["stock"]
+            if est == "despues" and v["estado_publicacion"] == "publicado":
+                stock = caso.STOCK_REAL[(v["sku"], v["color"], v["talla"])]     # B1: el conteo físico del 29
+            con.execute("UPDATE variantes SET stock=? WHERE sku=? AND color=? AND talla=?",
+                        (stock, v["sku"], v["color"], v["talla"]))
+        # Pedidos de prueba de la batería: solo en el «después» y solo si hay un teléfono de prueba en el entorno.
+        con.execute("DELETE FROM items WHERE numero IN (SELECT numero FROM pedidos WHERE origen='prueba')")
+        con.execute("DELETE FROM pedidos WHERE origen='prueba'")
+        tel = os.environ.get("KILTRA_TELEFONO_PRUEBA", "").strip()
+        prueba = est == "despues" and bool(tel)
+        if prueba:
+            cols = ["numero", "fecha", "hora", "cliente", "email", "telefono", "direccion", "comuna", "zona", "subtotal",
+                    "codigo", "descuento", "despacho", "total", "medio_pago", "estado", "courier", "seguimiento",
+                    "fecha_despacho", "fecha_estimada", "fecha_entrega", "nota_interna", "origen"]
+            for p in despues.pedidos_de_prueba(tel, hoy_chile()):
+                con.execute(f"INSERT INTO pedidos ({','.join(cols)}) VALUES ({','.join('?' * len(cols))})", [p[c] for c in cols])
+                for j, it in enumerate(p["items"]):
+                    con.execute("INSERT INTO items VALUES (?,?,?,?,?,?,?,?)", (p["numero"], j, it["sku"], it["producto"],
+                                                                             it["color"], it["talla"], 1, it["precio_unitario"]))
+        con.execute("INSERT OR REPLACE INTO meta VALUES ('estado', ?)", (est,))
+        con.execute("INSERT OR REPLACE INTO meta VALUES ('pedidos_de_prueba', ?)", ("si" if prueba else "no",))
+    return est
+
+
+def hoy_chile():
+    try:
+        from zoneinfo import ZoneInfo
+        return dt.datetime.now(ZoneInfo("America/Santiago")).date()
+    except Exception:          # Windows sin tzdata: Chile continental está en UTC-3 en primavera
+        return (dt.datetime.utcnow() - dt.timedelta(hours=3)).date()
+
+
+def hay_pedidos_de_prueba():
+    return meta("pedidos_de_prueba") == "si"
+
+
+def variantes_web():
+    return exportes.variantes_web()
+
+
+def tallas():
+    return config("tallas") or {"fuente": "web", **caso.GUIA_TALLAS["web"]}
 
 
 # ─────────────────────────── Configuración de la tienda (editable en el panel) ───────────────────────────
@@ -139,7 +217,7 @@ def meta(clave, valor=None):
 
 
 def verificar_siembra():
-    """Chequeos de que la configuración recién sembrada calza con los insumos del caso."""
+    """Chequeos de que la configuración recién sembrada calza con los insumos del caso (en el estado «antes»)."""
     import documentos
     F = caso.POLITICAS
     env, pag = config("envios"), config("paginas")

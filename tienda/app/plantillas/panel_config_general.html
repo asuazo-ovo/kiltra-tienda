@@ -4,6 +4,19 @@
 {% block contenido %}
 <h1 style="margin-bottom:14px">Configuración</h1>
 {{ subnav(sub) }}
+<section class="hoja" style="max-width:760px;padding:18px 20px;margin-bottom:26px" aria-labelledby="t-estado">
+  <h2 id="t-estado" style="margin:0 0 6px">Estado de la tienda en el curso
+    <span class="estado {{ 'e-listo' if estado_demo == 'despues' else 'e-pendiente' }}" style="margin-left:8px;vertical-align:middle">{{ "Después de Preparar" if estado_demo == "despues" else "Antes de Preparar" }}</span></h2>
+  <p class="ayuda" style="margin:0 0 12px">{{ estados[estado_demo] }}.
+    {% if estado_demo == "despues" %}Plazos desde el retiro del courier, envío del cambio según el motivo, garantía, retiro con hora, CAMI15 inactivo, notas de calce, la guía del proveedor y el stock del conteo físico del 29.{% else %}Las políticas, los plazos y el stock son los del 29 de septiembre, con las contradicciones que el curso diagnostica.{% endif %}
+    {% if prueba %}Están cargados los pedidos de prueba de la batería (KT-9001 a KT-9006).{% endif %}</p>
+  {% if cambiado %}<p class="guardado" role="status">La tienda quedó en el estado «{{ "después" if cambiado == "despues" else "antes" }}». Se recargaron la configuración, el catálogo y el stock; los pedidos y las apps siguen igual.</p>{% endif %}
+  <form method="post" action="/admin/configuracion/estado" style="display:flex;gap:10px;flex-wrap:wrap">
+    <button class="boton{{ '' if estado_demo == 'antes' else ' boton-sec' }}" name="estado" value="antes" type="submit" {% if estado_demo == "antes" %}disabled{% endif %}>Pasar a «antes»</button>
+    <button class="boton{{ '' if estado_demo == 'despues' else ' boton-sec' }}" name="estado" value="despues" type="submit" {% if estado_demo == "despues" %}disabled{% endif %}>Pasar a «después»</button>
+  </form>
+  <p class="ayuda" style="margin:10px 0 0">Cambiar de estado reemplaza lo que hayas editado en Configuración, Descuentos y Páginas, y el stock. En la tienda publicada, cada reinicio vuelve al estado de la variable <code>KILTRA_ESTADO</code>.</p>
+</section>
 <h2 style="margin-top:0">General</h2>
 {% if guardado %}<p class="guardado" role="status">Datos de la tienda guardados.</p>{% endif %}
 <form class="form" method="post">

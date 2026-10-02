@@ -4,7 +4,8 @@ Recién creada la base, la configuración es la versión «web» del 29-sep (con
 - A4: la fecha estimada son N días hábiles desde la compra, sin considerar los días de despacho ni el courier.
 - B10: la web dice «a todo Chile», pero el checkout solo ofrece las comunas configuradas.
 - C5: BIENVENIDA10 vale en la primera compra; CAMI15 venció el 31 de agosto.
-Lo que se corrija en el panel (Preparar del curso) cambia estas reglas sin tocar el código.
+Lo que se corrija en el panel (Preparar del curso) cambia estas reglas sin tocar el código. El estado «después»
+(app/despues.py) las corrige todas de una vez: la fecha estimada se cuenta desde el próximo retiro del courier.
 """
 import datetime as dt
 
@@ -51,7 +52,11 @@ def fecha_estimada(comuna, desde=None):
     z = e["comunas"].get(comuna)
     if z is None:
         return None
-    return caso.sumar_habiles((desde or ahora()).date(), e["zonas"][z]["dias_habiles"])
+    inicio = (desde or ahora()).date()
+    if e.get("cuenta_desde") == "retiro":          # el «después» (A4): desde el próximo retiro del courier
+        from .despues import proximo_retiro
+        inicio = proximo_retiro(inicio)
+    return caso.sumar_habiles(inicio, e["zonas"][z]["dias_habiles"])
 
 
 def fecha_larga(d):

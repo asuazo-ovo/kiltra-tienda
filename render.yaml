@@ -22,3 +22,7 @@ services:
         generateValue: true
       - key: KILTRA_SECRETO
         generateValue: true
+      - key: KILTRA_ESTADO
+        value: antes                # el estado del curso al arrancar: «antes» (Mapear) o «despues» (Políticas v1)
+      - key: KILTRA_TELEFONO_PRUEBA
+        sync: false                 # teléfono de quien prueba (pedidos KT-9001 a KT-9006): se pone a mano en Render, nunca aquí

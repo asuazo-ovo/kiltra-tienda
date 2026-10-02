@@ -22,9 +22,11 @@
     <div class="campo"><label for="condicion">Condición de la prenda</label><input id="condicion" name="condicion" value="{{ pol.reglas.condicion }}"></div>
     <div class="campo"><label for="envio_del_cambio">Envío del cambio o la devolución</label>
       <select id="envio_del_cambio" name="envio_del_cambio">
-        {% for v, t in [("", "Sin definir"), ("cliente", "Lo paga el cliente"), ("tienda", "Lo paga la tienda")] %}<option value="{{ v }}" {% if (pol.reglas.envio_del_cambio or "") == v %}selected{% endif %}>{{ t }}</option>{% endfor %}
+        {% for v, t in [("", "Sin definir"), ("cliente", "Lo paga el cliente"), ("tienda", "Lo paga la tienda"), ("segun_motivo", "Según el motivo")] %}<option value="{{ v }}" {% if (pol.reglas.envio_del_cambio or "") == v %}selected{% endif %}>{{ t }}</option>{% endfor %}
       </select>
-      {% if not pol.reglas.envio_del_cambio %}<p class="ayuda" style="color:#B45309">Sin definir: cada persona del equipo lo resuelve a su manera.</p>{% endif %}</div>
+      {% if not pol.reglas.envio_del_cambio %}<p class="ayuda" style="color:#B45309">Sin definir: cada persona del equipo lo resuelve a su manera.</p>{% endif %}
+      {% if pol.reglas.envio_del_cambio_detalle %}<p class="ayuda">{{ pol.reglas.envio_del_cambio_detalle }}</p>{% endif %}</div>
+    {% if pol.reglas.garantia_meses %}<div class="campo"><label>Garantía</label><input value="{{ pol.reglas.garantia_meses }} meses: {{ pol.reglas.garantia }}" disabled></div>{% endif %}
     <div class="campo"><label for="reembolso">Reembolso</label><input id="reembolso" name="reembolso" value="{{ pol.reglas.reembolso }}"></div>
     <button class="boton" type="submit">Guardar política</button>
   </div>

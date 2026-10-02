@@ -104,11 +104,18 @@ def pedido_json(p, con_cliente=True):
 # ─────────────────────────── Tienda, envíos y políticas ───────────────────────────
 @router.get("/store", tags=["tienda"])
 def tienda(request: Request, acceso=requiere("leer_envios")):
-    """Datos de la tienda y su configuración de envíos."""
+    """Datos de la tienda y su configuración de envíos.
+
+    `state` dice en qué estado del curso está la tienda: «antes» (la del 29-sep, con sus contradicciones) o
+    «despues» (las Políticas de Kiltra v1 aplicadas). `test_orders` dice si están cargados los pedidos de prueba
+    de la batería (KT-9001 a KT-9006)."""
     t, e = datos.config("tienda"), datos.config("envios")
     return {"platform": PLATAFORMA, "code": TIENDA_CODIGO, "name": t["nombre"], "url": _base(request), "email": t["email"],
-            "hours": t["horario"], "shipping": {"courier": e["courier"], "free_from": e["gratis_desde"], "zones": e["zonas"],
-                                                "comunas": e["comunas"]}}
+            "state": datos.estado(), "test_orders": datos.hay_pedidos_de_prueba(),
+            "hours": t["horario"], "pickup": t.get("showroom"), "size_guide": datos.tallas(),
+            "shipping": {"courier": e["courier"], "free_from": e["gratis_desde"], "zones": e["zonas"], "comunas": e["comunas"],
+                         "counted_from": e.get("cuenta_desde", "compra"), "courier_pickup_days": e.get("dias_de_retiro"),
+                         "note": e.get("nota_retiro"), "coverage": e.get("cobertura")}}
 
 
 @router.get("/policies", tags=["tienda"])

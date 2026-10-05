@@ -4,6 +4,9 @@
 # viernes, de 9:00 a 20:00 de Chile, para no gastar las 750 horas mensuales que Render comparte con SIGMA.
 # Horario en UTC: Chile está en UTC-3 de septiembre a abril. En invierno (UTC-4) corre de 8:00 a 19:00.
 # Se copia a .github/workflows/ del repo con armar_repo.py; la fuente es el vault.
+# 5-oct-2026: GitHub no respeta el «cada 5 minutos» (corre cada 15-25) y Render duerme a los 15, así que casi cada
+# latido llega con la tienda dormida (~32 s en despertar). Para mantenerla despierta de verdad se propuso
+# cron-job.org cada 10 minutos, como SIGMA; este workflow queda de respaldo.
 name: Latido de la tienda
 on:
   schedule:
@@ -12,7 +15,7 @@ on:
 jobs:
   latido:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 6          # despertar Render tarda 30-60 s; con los reintentos de curl el peor caso son ~4 min
     steps:
       - name: Despertar la tienda
         run: curl -fsS --max-time 90 --retry 2 --retry-delay 10 https://kiltra-tienda.onrender.com/salud
